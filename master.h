@@ -2,7 +2,7 @@
 #include "mpi.h"
 
 // Enables/Disables the log messages from the master process
-#define DEBUG_MASTER 0
+#define DEBUG_MASTER 1
 
 // Probability that a cataclysm may occur [0-100] :(
 #define PROB_CATACLYSM 100

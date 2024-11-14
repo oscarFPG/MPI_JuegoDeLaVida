@@ -53,11 +53,11 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 	for(int i = 0; i < workers - 1; i++){
 
 		// Crear buffer
-		buffer = malloc(porcion * sizeof(unsigned short));
-		strncpy(buffer, worldA + ini, porcion);	// Desde la posicion ini hasta ini + porcion
+		buffer = malloc(porcion * sizeof(unsigned short));	// No hacer copia
+		//strncpy(buffer, worldA + ini, porcion);	// Desde la posicion ini hasta ini + porcion
 
 		// Enviamos la porcion de tablero correspondiente
-		MPI_SEND(buffer, porcion, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
+		MPI_Send(worldA + ini, porcion, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
 		ini += porcion;
 		
 		// Liberar memoria
@@ -67,9 +67,31 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 	// Enviar la porcion restante a el ultimo worker
 	buffer = malloc( (areaTotal - ini) * sizeof(unsigned short) );
 	strncpy(buffer, worldA + (areaTotal - ini), areaTotal);
-	MPI_SEND(buffer, areaTotal - ini, MPI_UNSIGNED_SHORT, workers, 0, MPI_COMM_WORLD);
+
+	MPI_Send(buffer, areaTotal - ini, MPI_UNSIGNED_SHORT, workers, 0, MPI_COMM_WORLD);
 	free(buffer);
 }
+
+
+// -------------------- Masters and workers functionality --------------------
+void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
+
+	// Initicializar mundos
+	unsigned short* worldA, worldB;
+	initializeGame(worldA, worldB, worldWidth, worldHeight);
+
+	for(int iterations = 0; iterations < total_iterations; ++iterations){
+		repartirTablero(worldA, worldWidth, worldHeight, num_workers);
+	}
+
+}
+
+void workerExecution(){
+
+
+	MPI_Recv();
+}
+// -------------------------------------------------
 
 int main(int argc, char* argv[]){
 	
@@ -93,7 +115,7 @@ int main(int argc, char* argv[]){
 	
 	
 	// Init MPI
-	MPI_Init(&argc,&argv);
+	MPI_Init(&argc, &argv);
 	
 	// Get rank and size
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -181,31 +203,18 @@ int main(int argc, char* argv[]){
 		// Set timer
 		startTime = MPI_Wtime();
 		
-		// Initicializar mundos
-		unsigned short* worldA, worldB;
-		int numWorkers = size - 1;
-		initializeGame(worldA, worldB, worldWidth, worldHeight);
-
-		while(1){
-			repartirTablero(worldA, worldWidth, worldHeight, numWorkers);
-		}
+		// Masters action
+		masterExecution(worldWidth, worldHeight, size - 1, totalIterations);
 		
 		// Set timer
 		endTime = MPI_Wtime();
 		printf ("Total execution time:%f seconds\n", endTime-startTime);
-		
 	}
 	
 	// Workers
 	else{
-
+		workerExecution();
 	}
-		// TODO: Invoke the worker subprogram
 
     return 0;
 }
-
-
-
-
-
