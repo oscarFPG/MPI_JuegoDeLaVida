@@ -47,28 +47,37 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 
 	// Repartir tablero entre los workers
 	unsigned short* buffer = NULL;
-	int areaTotal = worldWidth * worldHeight;
-	int porcion = areaTotal / workers;
-	int ini = 0;	
-	for(int i = 0; i < workers - 1; i++){
+	//int areaTotal = worldWidth * worldHeight;
+	int FilasRestantes = worldHeight;
+	int porcionFilas;
+
+	int iniFila = 0;
+	int workersRestantes = workers;
+	while(workersRestantes > 0) {
+
+		porcionFilas = FilasRestantes / workersRestantes;
 
 		// Crear buffer
-		buffer = malloc(porcion * sizeof(unsigned short));	// No hacer copia
-		//strncpy(buffer, worldA + ini, porcion);	// Desde la posicion ini hasta ini + porcion
+		buffer = malloc(porcionFilas * sizeof(unsigned short));	// No hacer copia
+		//strncpy(buffer, worldA + iniFila, porcionFilas);	// Desde la posicion iniFila hasta iniFila + porcionFilas
 
-		// Enviamos la porcion de tablero correspondiente
-		MPI_Send(worldA + ini, porcion, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
-		ini += porcion;
+		// Enviamos la porcionFilas de tablero correspondiente
+		MPI_Send(worldA + iniFila, porcionFilas, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
+		iniFila += porcionFilas;
 		
+		//Actualizar estado
+		FilasRestantes -= porcionFilas;
+		workersRestantes--;
+
 		// Liberar memoria
 		free(buffer);
 	}
 	
 	// Enviar la porcion restante a el ultimo worker
-	buffer = malloc( (areaTotal - ini) * sizeof(unsigned short) );
-	strncpy(buffer, worldA + (areaTotal - ini), areaTotal);
+	buffer = malloc( (areaTotal - iniFila) * sizeof(unsigned short) );
+	strncpy(buffer, worldA + (areaTotal - iniFila), areaTotal);
 
-	MPI_Send(buffer, areaTotal - ini, MPI_UNSIGNED_SHORT, workers, 0, MPI_COMM_WORLD);
+	MPI_Send(buffer, areaTotal - iniFila, MPI_UNSIGNED_SHORT, workers, 0, MPI_COMM_WORLD);
 	free(buffer);
 }
 
