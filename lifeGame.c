@@ -31,6 +31,7 @@ void showError (char* msg){
 }
 
 
+// ------------------------------------- OUR AUXILIARY FUNCIONS ------------------------------------- //
 void initializeGame(unsigned short* worldA, unsigned short* worldB, int worldWidth, int worldHeight){
 
 	// Create empty worlds
@@ -51,36 +52,56 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 	int FilasRestantes = worldHeight;
 	int porcionFilas;
 
-	int iniFila = 0;
+	int iniFila = 0, tamaño = 0, i = 0;
 	int workersRestantes = workers;
 	while(workersRestantes > 0) {
 
 		porcionFilas = FilasRestantes / workersRestantes;
 
-		// Crear buffer
-		buffer = malloc(porcionFilas * sizeof(unsigned short));	// No hacer copia
-		//strncpy(buffer, worldA + iniFila, porcionFilas);	// Desde la posicion iniFila hasta iniFila + porcionFilas
+		// -------------------- Buffer Extra arriba -------------------- //
+		buffer = malloc(worldWidth * sizeof(unsigned short));	// No hacer copia
 
 		// Enviamos la porcionFilas de tablero correspondiente
-		MPI_Send(worldA + iniFila, porcionFilas, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
-		iniFila += porcionFilas;
-		
-		//Actualizar estado
-		FilasRestantes -= porcionFilas;
-		workersRestantes--;
+		//sii estamos en 0 => cojemos la ultima fila como la superior
+		//TODO
+		MPI_Send(buffer, worldWidth, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
 
 		// Liberar memoria
 		free(buffer);
+		// -------------------- Buffer Extra Arriba -------------------- //
+
+		// --------------------- Buffer de Trabajo --------------------- //
+		tamaño = porcionFilas * worldWidth;
+		buffer = malloc(tamaño * sizeof(unsigned short));	// No hacer copia
+		strncpy(buffer, worldA + iniFila, tamaño); // Desde la posicion iniFila hasta iniFila + tamaño
+
+		// Enviamos la porcionFilas de tablero correspondiente
+		MPI_Send(buffer, tamaño, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
+		
+		// Liberar memoria
+		free(buffer);
+		// --------------------- Buffer de Trabajo --------------------- //
+
+		// --------------------- Buffer Extra bajo --------------------- //
+		buffer = malloc(worldWidth * sizeof(unsigned short));	// No hacer copia
+
+		// Enviamos la porcionFilas de tablero correspondiente
+		//sii estamos en  worldHeight - 1 => cojemos la primera fila como la *inferior
+		//TODO
+		MPI_Send(buffer, worldWidth, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
+		
+		// Liberar memoria
+		free(buffer);
+		// --------------------- Buffer Extra bajo --------------------- //
+
+		//Actualizar estado
+		iniFila += tamaño;
+		FilasRestantes -= porcionFilas;
+		workersRestantes--;
+		i++;	
 	}
-	
-	// Enviar la porcion restante a el ultimo worker
-	buffer = malloc( (areaTotal - iniFila) * sizeof(unsigned short) );
-	strncpy(buffer, worldA + (areaTotal - iniFila), areaTotal);
-
-	MPI_Send(buffer, areaTotal - iniFila, MPI_UNSIGNED_SHORT, workers, 0, MPI_COMM_WORLD);
-	free(buffer);
 }
-
+// ------------------------------------- OUR AUXILIARY FUNCIONS ------------------------------------- //
 
 // -------------------- Masters and workers functionality --------------------
 void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
