@@ -31,7 +31,7 @@ void showError (char* msg){
 }
 
 
-// ------------------------------------- OUR AUXILIARY FUNCIONS ------------------------------------- //
+// ------------------------------------ MASTER AUXILIARY FUNCIONS ------------------------------------ //
 unsigned short* getBaseAddressByIndex(const int index, const unsigned short* world, const int WIDTH) {
 	return world + (index * WIDTH);
 }
@@ -48,7 +48,24 @@ void initializeGame(unsigned short* worldA, unsigned short* worldB, int worldWid
 	initRandomWorld(worldA, worldWidth, worldHeight);
 }
 
-void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, int workers){
+void castBasicInfo(int worldWidth, int worldHeight, int workers) {
+
+	//Mandar la informacion basica que necesitan los workers
+	int numeroFilas, filasRestantes = worldHeight, size = worldWidth;
+	int workersRestantes = workers, i = 0;;
+	while(workersRestantes > 0) {
+		numeroFilas = filasRestantes / workersRestantes;
+
+		MPI_Send(numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		MPI_Send(size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+
+		filasRestantes -= numeroFilas;
+		workersRestantes--;
+		i++;
+	}
+}
+
+void castPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers){
 
 	// Repartir tablero entre los workers
 	unsigned short* prt_i = worldA;
@@ -63,27 +80,27 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 
 		numeroFilas = filasRestantes / workersRestantes;
 
-		// -------------------- Buffer Extra arriba -------------------- //
+		// --------------------- Buffer Extra de Arriba --------------------- //
 		//sii estamos en 0 => cojemos la ultima fila como la superior
 		iniUp = (iniFila == 0) ? worldHeight - 1 : (iniFila - 1);
 		prt_i = getBaseAddressByIndex(iniUp, worldA, worldWidth);
 		MPI_Send(prt_i, worldWidth, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);	
-		// -------------------- Buffer Extra Arriba -------------------- //
+		// --------------------- Buffer Extra de Arriba --------------------- //
 
 
-		// --------------------- Buffer de Trabajo --------------------- //
+		// ----------------------- Buffer de Trabajo ----------------------- //
 		tamanio = numeroFilas * worldWidth;
 		prt_i = getBaseAddressByIndex(iniFila, worldA, worldWidth);
 		MPI_Send(prt_i, tamanio, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
-		// --------------------- Buffer de Trabajo --------------------- //
+		// ----------------------- Buffer de Trabajo ----------------------- //
 
 
-		// --------------------- Buffer Extra bajo --------------------- //
+		// --------------------- Buffer Extra de Abajo --------------------- //
 		//sii estamos en  worldHeight - 1 => cojemos la primera fila como la *inferior
 		iniDown = (iniFila + numeroFilas == worldHeight - 1) ? 0 : (iniFila + numeroFilas + 1);
 		prt_i = getBaseAddressByIndex(iniDown, worldA, worldWidth);
 		MPI_Send(prt_i, worldWidth, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);	
-		// --------------------- Buffer Extra bajo --------------------- //
+		// --------------------- Buffer Extra de Abajo --------------------- //
 
 		// Actualizar estado
 		iniFila += numeroFilas;
@@ -92,7 +109,7 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 		i++;	
 	}
 }
-// ------------------------------------- OUR AUXILIARY FUNCIONS ------------------------------------- //
+// ------------------------------------ MASTER AUXILIARY FUNCIONS ------------------------------------ //
 
 // -------------------------------- Master and Workers Functionality -------------------------------- //
 void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
@@ -102,20 +119,10 @@ void masterExecution(const unsigned short worldWidth, const unsigned short world
 	initializeGame(worldA, worldB, worldWidth, worldHeight);
 
 	// Mandar numero de filas y tamaño de fila
-	int numeroFilas, filasRestantes = worldHeight, workersRestantes = workers;
-	while(workersRestantes > 0) {
-		numeroFilas = filasRestantes / workersRestantes;
-
-		MPI_Send(numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-		MPI_Send(size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-
-		filasRestantes -= numeroFilas;
-		workersRestantes--;
-		i++;
-	}
+	castBasicInfo(worldWidth, worldHeight, num_workers);
 
 	// Bucle de juego
-	repartirTablero(worldA, worldWidth, worldHeight, num_workers);
+	castPanel(worldA, worldWidth, worldHeight, num_workers);
 }
 
 void workerExecution(){
