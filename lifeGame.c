@@ -94,7 +94,7 @@ void repartirTablero(unsigned short* worldA, int worldWidth, int worldHeight, in
 }
 // ------------------------------------- OUR AUXILIARY FUNCIONS ------------------------------------- //
 
-// -------------------- Masters and workers functionality --------------------
+// -------------------------------- Master and Workers Functionality -------------------------------- //
 void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
 
 	// Initicializar mundos
@@ -102,8 +102,17 @@ void masterExecution(const unsigned short worldWidth, const unsigned short world
 	initializeGame(worldA, worldB, worldWidth, worldHeight);
 
 	// Mandar numero de filas y tamaño de fila
-	MPI_Send(numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-	MPI_Send(size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+	int numeroFilas, filasRestantes = worldHeight, workersRestantes = workers;
+	while(workersRestantes > 0) {
+		numeroFilas = filasRestantes / workersRestantes;
+
+		MPI_Send(numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		MPI_Send(size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+
+		filasRestantes -= numeroFilas;
+		workersRestantes--;
+		i++;
+	}
 
 	// Bucle de juego
 	repartirTablero(worldA, worldWidth, worldHeight, num_workers);
@@ -116,7 +125,7 @@ void workerExecution(){
 
 
 }
-// -------------------------------------------------
+// -------------------------------- Master and Workers Functionality -------------------------------- //
 
 int main(int argc, char* argv[]){
 	
