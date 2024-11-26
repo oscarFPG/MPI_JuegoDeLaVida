@@ -1,1 +1,1 @@
-mpiexec -hostfile machines -np 4 lifeGame 200 200 10 step archivo.txt static
+mpiexec -hostfile machines -np 4 lifeGame 200 200 10 auto archivo.txt static

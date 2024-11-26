@@ -37,20 +37,24 @@ void showError (char* msg){
 void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
 
 	// Initicializar mundos
+	tWorkerInfo* masterIndexes = malloc(num_workers * sizeof(tWorkerInfo));
 	unsigned short* worldA, worldB;
 	initializeGame(worldA, worldB, worldWidth, worldHeight);
 
 	// Mandar numero de filas y tamaño de fila
-	sendBasicEstaticInfo(worldWidth, worldHeight, num_workers);
+	sendBasicEstaticInfo(worldA, worldWidth, worldHeight, num_workers, masterIndexes);
 
 	// Bucle de juego
 	sendEstaticPanel(worldA, worldWidth, worldHeight, num_workers);
+
+	free(masterIndexes);
 }
 
-void workerExecution(){
+void workerExecution(int rank){
 
 	// Recibir parte
-	MPI_Recv();
+	work(rank);
+	//MPI_Recv();
 
 
 }
@@ -176,7 +180,7 @@ int main(int argc, char* argv[]){
 	
 	// Workers
 	else{
-		workerExecution();
+		workerExecution(rank);
 	}
 
     return 0;

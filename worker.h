@@ -5,3 +5,6 @@
 #define DEBUG_WORKER 0
 
 
+void work(int rank);
+
+void recvBasicEstaticInfo(int rank, int* numeroFilas, int* size);

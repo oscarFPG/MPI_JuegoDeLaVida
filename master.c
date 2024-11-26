@@ -19,24 +19,31 @@ void initializeGame(unsigned short* worldA, unsigned short* worldB, int worldWid
 // ------------------------------------ MASTER AUXILIARY FUNCIONS ------------------------------------ //
 
 // ------------------------------------- MASTER ESTATIC FUNCIONS ------------------------------------- //
-void sendBasicEstaticInfo(int worldWidth, int worldHeight, int workers, int* index) {
+void sendBasicEstaticInfo(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex) {
 
 	//Mandar la informacion basica que necesitan los workers
-    index[workers * 2];
+	int * prt_i;
+	int iniFila = 0, tamanio = 0;
 	int numeroFilas, filasRestantes = worldHeight, size = worldWidth;
-	int workersRestantes = workers, i = 0;;
-	while(workersRestantes > 0) {
+	int workersRestantes = workers, i = 1;
+	while(workersRestantes >= 0) {
+
 		numeroFilas = filasRestantes / workersRestantes;
 
-		MPI_Send(numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-		MPI_Send(size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		MPI_Send(&numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		MPI_Send(&size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		
+		//Index information
+		tamanio = numeroFilas * worldWidth;
+		prt_i = getBaseAddressByIndex(iniFila, worldA, worldWidth);
+		masterIndex[i].ptr_ini = prt_i;
+		masterIndex[i].size = tamanio;
 
-        //guardo para cada worker: la fila donde empieza y la cantidad que tiene asignada
-        index[i * 2] = i;
-        index[(i * 2) + 1] = numeroFilas;
-
+		printf("worker %d  size %d ptr %x\n", i, masterIndex[i].size, masterIndex[i].ptr_ini);
+		// Actualizar estado
 		filasRestantes -= numeroFilas;
 		workersRestantes--;
+		iniFila += numeroFilas;
 		i++;
 	}
 }
@@ -45,7 +52,7 @@ void sendEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, i
 
 	// Repartir tablero entre los workers
 	unsigned short* prt_i = worldA;
-	int iniFila = 0, iniUp = 0, iniDown = 0, tamanio = 0, i = 0;
+	int iniFila = 0, iniUp = 0, iniDown = 0, tamanio = 0, i = 1;
 	int workersRestantes = workers, filasRestantes = worldHeight, numeroFilas;
 	while(workersRestantes > 0) {
 
@@ -82,24 +89,27 @@ void sendEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, i
 		i++;	
 	}
 }
-void recvEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers, int* index) {
 
+void recvEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex) {
+
+	//while()
 }
 // ------------------------------------- MASTER ESTATIC FUNCIONS ------------------------------------- //
 
 // ------------------------------------- MASTER DINAMIC FUNCIONS ------------------------------------- //
 void sendDinamicPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers) {
 
-    int nFilasSend = 0, nFilasRecv = worldHeight;
-    int index[workers];
+    int nFilasSend = 0, nFilasRecv = worldHeight, size = worldWidth;
+	int* prt_i;
     // i es tanto el worquer como la fila
-    for(int i = 0; i < worker; i++){
+    for(int i = 0; i < workers; i++){
 
         MPI_Send(size, 1, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
         prt_i = getBaseAddressByIndex(i, worldA, worldWidth);
         MPI_Send(prt_i, worldWidth, MPI_UNSIGNED_SHORT, i, 0, MPI_COMM_WORLD);
         nFilasSend++;
-        index[i] = i;//guardo que fila le he dado al trabajador;
-    }
+	}
+
+
 }
 // ------------------------------------- MASTER DINAMIC FUNCIONS ------------------------------------- //
