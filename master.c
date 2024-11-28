@@ -30,8 +30,8 @@ void sendBasicEstaticInfo(unsigned short* worldA, int worldWidth, int worldHeigh
 
 		numeroFilas = filasRestantes / workersRestantes;
 
-		MPI_Send(&numeroFilas, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-		MPI_Send(&size, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+		MPI_Send(&numeroFilas, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+		MPI_Send(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 		
 		//Index information
 		tamanio = numeroFilas * worldWidth;

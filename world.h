@@ -95,7 +95,32 @@ void clearWorld (unsigned short *w,
 void calculateLonelyCell ();
 
 
+/**
+ * Updates a cell in the given coordinate.
+ * 
+ * @param cell Cell's coordinate.
+ * @param currentWorld Current state of the world. 
+ * @param newWorld Next state of the world.
+ * @param worldWidth Width of the world (in number of cells).
+ * @param worldHeight Height of the world (in number of cells).
+ */
+void updateCell (tCoordinate *cell, 
+				unsigned short* currentWorld,
+				unsigned short* newWorld,
+				int worldWidth, 
+				int worldHeight);
+
+/**
+ * Calculates the next state of the world.
+ * 
+ * @param currentWorld Current state of the world. 
+ * @param newWorld Next state of the world.
+ * @param worldWidth Width of the world (in number of cells).
+ * @param worldHeight Height of the world (in number of cells).
+ */
+void updateWorld (unsigned short *currentWorld,
+					unsigned short *newWorld,
+					int worldWidth, 
+					int worldHeight);
+
 #endif
-
-
-
