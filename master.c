@@ -5,46 +5,52 @@ unsigned short* getBaseAddressByIndex(const int index, const unsigned short* wor
 	return world + (index * WIDTH);
 }
 
-void initializeGame(unsigned short* worldA, unsigned short* worldB, int worldWidth, int worldHeight) {
+unsigned short* getAuxiliarRowFromAbove(const unsigned short* rowStart){
 
-	// Create empty worlds
-	worldA = (unsigned short*) malloc (worldWidth * worldHeight * sizeof (unsigned short));
-	worldB = (unsigned short*) malloc (worldWidth * worldHeight * sizeof (unsigned short));
-	clearWorld(worldA, worldWidth, worldHeight);
-	clearWorld(worldB, worldWidth, worldHeight);
-			
-	// Create a random world		
-	initRandomWorld(worldA, worldWidth, worldHeight);
 }
-// ------------------------------------ MASTER AUXILIARY FUNCIONS ------------------------------------ //
+
+unsigned short* getAuxiliarRowFromUnder(const unsigned short* rowStart){
+	
+}
 
 // ------------------------------------- MASTER ESTATIC FUNCIONS ------------------------------------- //
-void sendBasicEstaticInfo(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex) {
+void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int worldHeight, int maxWorkers, tWorkerInfo* masterIndex) {
 
-	//Mandar la informacion basica que necesitan los workers
-	int * prt_i;
-	int iniFila = 0, tamanio = 0;
-	int numeroFilas, filasRestantes = worldHeight, size = worldWidth;
-	int workersRestantes = workers, i = 1;
-	while(workersRestantes >= 0) {
+	unsigned short* i_ptr = worldA;
+	int remainingRows = worldHeight;
+	int rowsPerWorker = (worldHeight % maxWorkers == 0) ? (worldHeight / maxWorkers) : ((worldHeight / maxWorkers) + 1);	// To round
+	int worker = 1;
+	while(worker <= maxWorkers){
 
-		numeroFilas = filasRestantes / workersRestantes;
+		// Send world width
+		MPI_Send(&worldWidth, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
 
-		MPI_Send(&numeroFilas, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-		MPI_Send(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-		
-		//Index information
-		tamanio = numeroFilas * worldWidth;
-		prt_i = getBaseAddressByIndex(iniFila, worldA, worldWidth);
-		masterIndex[i].ptr_ini = prt_i;
-		masterIndex[i].size = tamanio;
+		// Send size of piece to work with
+		MPI_Send(&rowsPerWorker, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
 
-		printf("worker %d  size %d ptr %x\n", i, masterIndex[i].size, masterIndex[i].ptr_ini);
-		// Actualizar estado
-		filasRestantes -= numeroFilas;
-		workersRestantes--;
-		iniFila += numeroFilas;
-		i++;
+		// Save position in the world of each worker
+		masterIndex[worker - 1].baseAddress = i_ptr;
+		masterIndex[worker - 1].size = rowsPerWorker * worldWidth;
+
+		// If the remaining rows to distribute are less that the size we are distributing:
+		// It's the last partition -> Assign it to the last worker
+		remainingRows -= rowsPerWorker;
+		if(remainingRows < rowsPerWorker)
+			rowsPerWorker = remainingRows;
+
+		i_ptr += masterIndex[worker - 1].size;
+		++worker;
+	}
+}
+
+void send_board_partitions(const unsigned short* worldA, const int workers, tWorkerInfo* masterIndex){
+
+	for(int w = 0; w < workers; w++){
+		int workerID = w + 1;
+		unsigned short* start = masterIndex[w].baseAddress;
+		int numberOfCells = masterIndex[w].size;
+
+		MPI_Send(start, numberOfCells, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
 	}
 }
 
@@ -92,9 +98,8 @@ void sendEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, i
 
 void recvEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex) {
 
-	//while()
 }
-// ------------------------------------- MASTER ESTATIC FUNCIONS ------------------------------------- //
+
 
 // ------------------------------------- MASTER DINAMIC FUNCIONS ------------------------------------- //
 void sendDinamicPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers) {
@@ -112,4 +117,3 @@ void sendDinamicPanel(unsigned short* worldA, int worldWidth, int worldHeight, i
 
 
 }
-// ------------------------------------- MASTER DINAMIC FUNCIONS ------------------------------------- //

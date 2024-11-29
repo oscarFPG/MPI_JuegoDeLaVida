@@ -31,34 +31,66 @@ void showError (char* msg){
 }
 
 
-
-
 // -------------------------------- Master and Workers Functionality -------------------------------- //
 void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
 
-	// Initicializar mundos
-	tWorkerInfo* masterIndexes = malloc(num_workers * sizeof(tWorkerInfo));
-	unsigned short* worldA, worldB;
-	initializeGame(worldA, worldB, worldWidth, worldHeight);
+	unsigned short* worldA = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
+	unsigned short* worldB = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
+	tWorkerInfo* masterIndex = malloc(num_workers * sizeof(tWorkerInfo));
+
+	// Inicializar mundos
+	clearWorld(worldA, worldWidth, worldHeight);
+	clearWorld(worldB, worldWidth, worldHeight);
+			
+	// Create a random world		
+	initRandomWorld(worldA, worldWidth, worldHeight);
 
 	// Mandar numero de filas y tamaño de fila
-	sendBasicEstaticInfo(worldA, worldWidth, worldHeight, num_workers, masterIndexes);
+	send_number_of_rows_and_size(worldA, worldWidth, worldHeight, num_workers, masterIndex);
 
 	// Bucle de juego
-	sendEstaticPanel(worldA, worldWidth, worldHeight, num_workers);
+	int currentIteration = 0;
+	while(currentIteration < total_iterations){
 
-	free(masterIndexes);
+		// Enviar porciones de mapa
+		send_board_partitions(worldA, num_workers, masterIndex);
+
+		// Recibir porciones de mapa
+		receive_board_partitions(worldB, num_workers, masterIndex);
+
+		for(int r = 0; 0 < worldHeight; r++){
+			for(int c = 0; c < worldWidth; c++){
+				
+			}
+		}
+
+		// Mostrar por pantalla
+		//drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
+
+		++currentIteration;
+	}
+
+	free(masterIndex);
 }
 
-void workerExecution(int rank){
+void workerExecution(const int rank){
 
-	// Recibir parte
-	work(rank);
-	//MPI_Recv();
+	int worldWidth, numberOfRows;
+    receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
 
+	int totalSize = numberOfRows * worldWidth;
+	unsigned short* partition = malloc(totalSize);
+	receive_world_partition(partition, totalSize);
+
+	if(rank == 2){
+		printf("Worker %d\n", rank);
+		for(int i = 0; i < totalSize; i++){
+			printf("| %hu |", partition[i]);
+		}
+	}
 
 }
-// -------------------------------- Master and Workers Functionality -------------------------------- //
+
 
 int main(int argc, char* argv[]){
 	
@@ -172,7 +204,7 @@ int main(int argc, char* argv[]){
 		
 		// Masters action
 		masterExecution(worldWidth, worldHeight, size - 1, totalIterations);
-		
+
 		// Set timer
 		endTime = MPI_Wtime();
 		printf ("Total execution time:%f seconds\n", endTime-startTime);
@@ -183,5 +215,6 @@ int main(int argc, char* argv[]){
 		workerExecution(rank);
 	}
 
+	MPI_Finalize();
     return 0;
 }

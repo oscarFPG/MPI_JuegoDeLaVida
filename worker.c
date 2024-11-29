@@ -1,19 +1,12 @@
 #include "worker.h"
 
-void recvBasicEstaticInfo(int rank, int* numeroFilas, int* size){
+void receive_sizes_of_work(int rank, int* worldWidth, int* numberOfRows){
 
-    MPI_Status status;
-
-    MPI_Recv(numeroFilas, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, &status);
-    MPI_Recv(size, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, &status);
-
-    printf("worker %d  size %d ptr %x\n", rank  , numeroFilas, size);
+    MPI_Recv(worldWidth, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
+    MPI_Recv(numberOfRows, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
+    printf("The worker %d with auxilizar size of %d and working size of %d\n", rank, *worldWidth, *numberOfRows);
 }
 
-void work(int rank){
-
-    int numeroFilas, size;
-    recvBasicEstaticInfo(rank, &numeroFilas, &size);
-    //recvEstaticInfo();
-    //sendInfo();
+void receive_world_partition(unsigned short* partition, const int totalSize){
+    MPI_Recv(partition, totalSize, MPI_UNSIGNED_SHORT, MASTER, 0, MPI_COMM_WORLD, NULL);
 }

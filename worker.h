@@ -7,4 +7,4 @@
 
 void work(int rank);
 
-void recvBasicEstaticInfo(int rank, int* numeroFilas, int* size);
+void receive_sizes_of_work(int rank, int* auxSize, int* workSize);

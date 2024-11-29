@@ -22,49 +22,43 @@ void getCellRight (tCoordinate* c, int worldWidth, tCoordinate* destCell){
     destCell->col = c->col < worldWidth-1 ? c->col+1 : 0;
 }
 
-
-unsigned short int getCellAtWorld (tCoordinate* c, 
-			   unsigned short* world,
-			   int worldWidth){
-				   
+unsigned short int getCellAtWorld (tCoordinate* c, unsigned short* world, int worldWidth){		   
 	return (world[(c->row*worldWidth)+c->col]);	
 }
 
-void setCellAt (tCoordinate* c, 
-			   unsigned short* world,
-			   int worldWidth,
-			   unsigned short int type){
-	
+void setCellAt (tCoordinate* c, unsigned short* world, int worldWidth, unsigned short int type){
 	world[(c->row*worldWidth)+c->col] = type;	
 }
 
-void initRandomWorld (unsigned short *w, 
-					int worldWidth, 
-					int worldHeight){
+void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 
 	tCoordinate cell;
-	
-		for (int col=0; col<worldWidth; col++)
-			for (int row=0; row<worldHeight; row++)
-				if ((rand()%100)<INITIAL_CELLS_PERCENTAGE){					
-					cell.row = row;
-					cell.col = col;	
-					setCellAt (&cell, w, worldWidth, CELL_LIVE);	
-				}
+	unsigned short count = 0;
+	for (int row = 0; row < worldHeight; row++){
+		for (int col = 0; col < worldWidth; col++){
+			if (1 || (rand() % 100) < INITIAL_CELLS_PERCENTAGE){					
+				cell.row = row;
+				cell.col = col;	
+				setCellAt(&cell, w, worldWidth, count++);
+				unsigned short value = getCellAtWorld(&cell, w, worldWidth);
+				printf("| %hu | ", value);
+			}
+		}
+		printf("\n");
+	}
+	printf("\n\n");
 }
 
-void clearWorld (unsigned short *w, 
-				int worldWidth, 
-				int worldHeight){
+void clearWorld (unsigned short *w, int worldWidth, int worldHeight){
 	
 	tCoordinate cell;
-
-		for (int col=0; col<worldWidth; col++)
-			for (int row=0; row<worldHeight; row++){
-				cell.row = row;
-				cell.col = col;
-				setCellAt (&cell, w, worldWidth, CELL_EMPTY);				
-			}
+	for (int row=0; row<worldWidth; row++){
+		for (int col= 0; col<worldHeight; col++){
+			cell.row = row;
+			cell.col = col;
+			setCellAt (&cell, w, worldWidth, CELL_EMPTY);				
+		}
+	}
 }
 
 void calculateLonelyCell (){
@@ -93,79 +87,3 @@ void calculateLonelyCell (){
 	free (matrixB);
 	free (matrixC);
 }
-
-// ----------------------------------- Update ----------------------------------- //
-
-void updateCell (tCoordinate *cell, 
-				unsigned short* currentWorld,
-				unsigned short* newWorld,
-				int worldWidth, 
-				int worldHeight){
-	
-	int neighbours = 0;
-				
-		// Check up
-		if (getCellAt(getCellUp(cell, worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;
-				
-		// Check down
-		if (getCellAt(getCellDown(cell, worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;		
-			
-		// Check left
-		if (getCellAt(getCellLeft(cell, worldWidth), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;
-	
-		// Check right
-		if (getCellAt(getCellRight(cell, worldWidth), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;				
-		
-		// Check up-left
-		if (getCellAt(getCellUp(getCellLeft(cell, worldWidth), worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;		
-		
-		// Check up-right
-		if (getCellAt(getCellUp(getCellRight(cell, worldWidth), worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;
-		
-		// Check down-left
-		if (getCellAt(getCellDown(getCellLeft(cell, worldWidth), worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;
-		
-		// Check down-right
-		if (getCellAt(getCellDown(getCellRight(cell, worldWidth), worldHeight), currentWorld, worldWidth) == CELL_LIVE)
-			neighbours++;		
-		
-		// Lonely cell?
-		if (getCellAt(cell, currentWorld, worldWidth) == CELL_EMPTY && (neighbours==0))
-			calculateLonelyCell();
-		
-		// Cell is still alive
-		if (getCellAt(cell, currentWorld, worldWidth) == CELL_LIVE && ((neighbours==2) || (neighbours==3)))
-			setCellAt (cell, newWorld, worldWidth, CELL_LIVE);
-					
-		// New cell is born
-		else if (getCellAt(cell, currentWorld, worldWidth) == CELL_EMPTY && (neighbours==3))
-			setCellAt (cell, newWorld, worldWidth, CELL_LIVE);
-		
-		// Cell is dead
-		else
-			setCellAt (cell, newWorld, worldWidth, CELL_EMPTY);							
-}
-
-void updateWorld (unsigned short *currentWorld,
-					unsigned short *newWorld,
-					int worldWidth, 
-					int worldHeight){
-	
-	tCoordinate cell;
-					
-	for (int col=0; col<worldWidth; col++)
-		for (int row=0; row<worldHeight; row++){
-			cell.row = row;
-			cell.col = col;
-			updateCell (&cell, currentWorld, newWorld, worldWidth, worldHeight);
-		}
-}
-
-// ----------------------------------- Update ----------------------------------- //
