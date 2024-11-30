@@ -33,20 +33,15 @@ void setCellAt (tCoordinate* c, unsigned short* world, int worldWidth, unsigned 
 void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 
 	tCoordinate cell;
-	unsigned short count = 0;
 	for (int row = 0; row < worldHeight; row++){
 		for (int col = 0; col < worldWidth; col++){
-			if (1 || (rand() % 100) < INITIAL_CELLS_PERCENTAGE){					
+			if ((rand() % 100) < INITIAL_CELLS_PERCENTAGE){					
 				cell.row = row;
 				cell.col = col;	
-				setCellAt(&cell, w, worldWidth, count++);
-				unsigned short value = getCellAtWorld(&cell, w, worldWidth);
-				printf("| %hu | ", value);
+				setCellAt(&cell, w, worldWidth, CELL_LIVE);
 			}
 		}
-		printf("\n");
 	}
-	printf("\n\n");
 }
 
 void clearWorld (unsigned short *w, int worldWidth, int worldHeight){

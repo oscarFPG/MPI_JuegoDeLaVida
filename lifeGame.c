@@ -32,64 +32,6 @@ void showError (char* msg){
 
 
 // -------------------------------- Master and Workers Functionality -------------------------------- //
-void masterExecution(const unsigned short worldWidth, const unsigned short worldHeight, const int num_workers, const int total_iterations){
-
-	unsigned short* worldA = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
-	unsigned short* worldB = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
-	tWorkerInfo* masterIndex = malloc(num_workers * sizeof(tWorkerInfo));
-
-	// Inicializar mundos
-	clearWorld(worldA, worldWidth, worldHeight);
-	clearWorld(worldB, worldWidth, worldHeight);
-			
-	// Create a random world		
-	initRandomWorld(worldA, worldWidth, worldHeight);
-
-	// Mandar numero de filas y tamaño de fila
-	send_number_of_rows_and_size(worldA, worldWidth, worldHeight, num_workers, masterIndex);
-
-	// Bucle de juego
-	int currentIteration = 0;
-	while(currentIteration < total_iterations){
-
-		// Enviar porciones de mapa
-		send_board_partitions(worldA, num_workers, masterIndex);
-
-		// Recibir porciones de mapa
-		receive_board_partitions(worldB, num_workers, masterIndex);
-
-		for(int r = 0; 0 < worldHeight; r++){
-			for(int c = 0; c < worldWidth; c++){
-				
-			}
-		}
-
-		// Mostrar por pantalla
-		//drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
-
-		++currentIteration;
-	}
-
-	free(masterIndex);
-}
-
-void workerExecution(const int rank){
-
-	int worldWidth, numberOfRows;
-    receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
-
-	int totalSize = numberOfRows * worldWidth;
-	unsigned short* partition = malloc(totalSize);
-	receive_world_partition(partition, totalSize);
-
-	if(rank == 2){
-		printf("Worker %d\n", rank);
-		for(int i = 0; i < totalSize; i++){
-			printf("| %hu |", partition[i]);
-		}
-	}
-
-}
 
 
 int main(int argc, char* argv[]){
@@ -171,7 +113,7 @@ int main(int argc, char* argv[]){
 			exit (0);
 		}			
 		// Create window
-		window = SDL_CreateWindow( "Práctica 3 de PSD",
+		window = SDL_CreateWindow("Práctica 3 de PSD",
 									0, 0,
 									worldWidth * CELL_SIZE, worldHeight * CELL_SIZE,
 									SDL_WINDOW_SHOWN);			
@@ -203,7 +145,52 @@ int main(int argc, char* argv[]){
 		startTime = MPI_Wtime();
 		
 		// Masters action
-		masterExecution(worldWidth, worldHeight, size - 1, totalIterations);
+		int num_workers = size - 1;
+		unsigned short* worldA = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
+		unsigned short* worldB = (unsigned short*) malloc(worldWidth * worldHeight * sizeof(unsigned short));
+		tWorkerInfo* masterIndex = malloc(num_workers * sizeof(tWorkerInfo));
+
+		// Inicializar mundos
+		clearWorld(worldA, worldWidth, worldHeight);
+		clearWorld(worldB, worldWidth, worldHeight);
+				
+		// Create a random world		
+		initRandomWorld(worldA, worldWidth, worldHeight);
+
+		// Show initial state
+		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
+		SDL_RenderClear(renderer);
+		drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
+		SDL_RenderPresent(renderer);
+		SDL_UpdateWindowSurface(window);
+
+		// Mandar numero de filas y tamaño de fila
+		send_number_of_rows_and_size(worldA, worldWidth, worldHeight, num_workers, masterIndex);
+
+		// Bucle de juego
+		int currentIteration = 0;
+		while(currentIteration < totalIterations){
+			
+			// Clear renderer
+			SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
+			SDL_RenderClear(renderer);
+
+			// Enviar porciones de mapa
+			send_board_partitions(worldA, num_workers, worldWidth, worldHeight, masterIndex);
+
+			// Mostrar por pantalla
+			drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
+
+			// Update surface
+			SDL_RenderPresent(renderer);
+			SDL_UpdateWindowSurface(window);
+			SDL_Delay(300);
+			//++currentIteration;
+		}
+
+		free(worldA);
+		free(worldB);
+		free(masterIndex);
 
 		// Set timer
 		endTime = MPI_Wtime();
@@ -212,7 +199,27 @@ int main(int argc, char* argv[]){
 	
 	// Workers
 	else{
-		workerExecution(rank);
+		unsigned short* partition = NULL;
+		unsigned short* rowAbove = NULL;
+		unsigned short* rowUnder = NULL;
+		int totalSize = 0;
+		int worldWidth, numberOfRows;
+
+
+		receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
+
+		// Calculate size of each board partition
+		totalSize = numberOfRows * worldWidth;
+		partition = malloc(totalSize);
+		rowAbove = malloc(worldWidth);
+		rowUnder = malloc(worldWidth);
+
+		receive_world_partition(partition, rowAbove, rowUnder, totalSize, worldWidth);
+
+		// Free memory
+		free(partition);
+		free(rowAbove);
+		free(rowUnder);
 	}
 
 	MPI_Finalize();

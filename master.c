@@ -5,14 +5,6 @@ unsigned short* getBaseAddressByIndex(const int index, const unsigned short* wor
 	return world + (index * WIDTH);
 }
 
-unsigned short* getAuxiliarRowFromAbove(const unsigned short* rowStart){
-
-}
-
-unsigned short* getAuxiliarRowFromUnder(const unsigned short* rowStart){
-	
-}
-
 // ------------------------------------- MASTER ESTATIC FUNCIONS ------------------------------------- //
 void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int worldHeight, int maxWorkers, tWorkerInfo* masterIndex) {
 
@@ -28,7 +20,7 @@ void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int wo
 		// Send size of piece to work with
 		MPI_Send(&rowsPerWorker, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
 
-		// Save position in the world of each worker
+		// Save first position in the world of each worker and number of cells in it
 		masterIndex[worker - 1].baseAddress = i_ptr;
 		masterIndex[worker - 1].size = rowsPerWorker * worldWidth;
 
@@ -43,14 +35,31 @@ void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int wo
 	}
 }
 
-void send_board_partitions(const unsigned short* worldA, const int workers, tWorkerInfo* masterIndex){
+void send_board_partitions(const unsigned short* worldA, const int workers, const int worldWidth, const int worldHeight, tWorkerInfo* masterIndex){
 
 	for(int w = 0; w < workers; w++){
 		int workerID = w + 1;
 		unsigned short* start = masterIndex[w].baseAddress;
 		int numberOfCells = masterIndex[w].size;
 
+		// Send world partition to work with
 		MPI_Send(start, numberOfCells, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
+
+		// Send auxiliar row above
+		unsigned short* rowFromAbove;
+		if(workerID == 1)
+			rowFromAbove = worldA + ( (worldWidth * worldHeight) - worldWidth );
+		else
+			rowFromAbove = masterIndex[w].baseAddress - worldWidth;
+		MPI_Send(rowFromAbove, worldWidth, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
+
+		// Send auxiliar row from under
+		unsigned short* rowFromUnder;
+		if(workerID == workers)
+			rowFromUnder = worldA;
+		else
+			rowFromUnder = masterIndex[w + 1].baseAddress;
+		MPI_Send(rowFromUnder, worldWidth, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
 	}
 }
 

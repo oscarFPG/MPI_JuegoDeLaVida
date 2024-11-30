@@ -21,7 +21,7 @@ unsigned short* getBaseAddressByIndex(const int index, const unsigned short* wor
 
 // Master estatic funcions
 void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex);
-void send_board_partitions(const unsigned short* worldA, const int workers, tWorkerInfo* masterIndex);
+void send_board_partitions(const unsigned short* worldA, const int workers, const int worldWidth, const int worldHeight, tWorkerInfo* masterIndex);
 void sendEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers);
 void recvEstaticPanel(unsigned short* worldA, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex);
 
