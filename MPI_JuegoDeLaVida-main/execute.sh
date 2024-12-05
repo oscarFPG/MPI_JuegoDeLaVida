@@ -1,1 +1,0 @@
-mpiexec -hostfile machines -np 4 lifeGame 10 10 10 step archivo.txt static
