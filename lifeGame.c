@@ -159,20 +159,6 @@ int main(int argc, char* argv[]){
 		// Create a random world		
 		initRandomWorld(worldA, worldWidth, worldHeight);
 
-		printf("Tablero\n");
-		int c = 1;
-		for(int i = 0; i < worldWidth * worldHeight; i++){
-			printf("| %hu |", worldA[i]);
-			if(c == worldWidth){
-				c = 1;
-				printf("\n");
-			}
-			else{
-				c++;
-				printf(" ");
-			}
-		}
-		
 		// Show initial state
 		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
 		SDL_RenderClear(renderer);
@@ -185,19 +171,20 @@ int main(int argc, char* argv[]){
 
 		// Enviar porciones de mapa
 		send_board_partitions(worldA, num_workers, worldWidth, worldHeight, masterIndex, &maxSize);
-		if(DEBUG_MASTER)
-			printf("Maximum size send is %d\n", maxSize);
-
 
 		unsigned short* auxiliar = malloc(sizeof(unsigned short) * maxSize);
 		int workersLeft = size - 1;
 		calculateLonelyCell();
-		MPI_Finalize();
+		calculateLonelyCell();
+		calculateLonelyCell();
+		calculateLonelyCell();
+		calculateLonelyCell();
+		while(1){}
 
 
 		// Bucle de juego
 		int currentIteration = 0;
-		while(currentIteration < 9873459){
+		while(currentIteration < totalIterations){
 			
 			// Clear renderer
 			SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
@@ -225,76 +212,8 @@ int main(int argc, char* argv[]){
 	
 	// Workers
 	else{
-		unsigned short* partition = NULL;
-		unsigned short* rowAbove = NULL;
-		unsigned short* rowUnder = NULL;
-		int totalSize = 0;
-		int worldWidth, numberOfRows;
-
-
-		receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
-		if(0 && DEBUG_WORKER)
-			printf("Worker %d recibio el ancho del mundo(%d) y el numero de filas(%d)\n", rank, worldWidth, numberOfRows);
-
-		// Calculate size of each board partition
-		totalSize = numberOfRows * worldWidth;
-		partition = malloc(sizeof(unsigned short) * totalSize);
-		rowAbove = malloc(sizeof(unsigned short) * worldWidth);
-		rowUnder = malloc(sizeof(unsigned short) * worldWidth);
-		receive_world_partition(partition, rowAbove, rowUnder, totalSize, worldWidth);
 		
-		// Transform into matrix
-		unsigned short* matrix = transformIntoMatrix(rowAbove, partition, rowUnder, totalSize, worldWidth);
-		unsigned short* newMatrix = malloc(totalSize);
-		free(partition);
-		free(rowAbove);
-		free(rowUnder);
-
-		// Update each cell
-		printf("MATRIZ old de worker %d\n", rank);
-		int N = totalSize + worldWidth + worldWidth;
-		int count = 1;
-		for(int i = 0; i < N; i++){
-			printf("| %hu |", matrix[i]);
-			if(count == 10){
-				count = 1;
-				printf("\n");
-			}
-			else{
-				count++;
-				printf(" ");
-			}
-		}
-		printf("\nFinal de MATRIZ old\n");
-
-
-		// Actualizar todas las celdas de la seccion de trabajo
-		tCoordinate cell;
-		for(int row = 1; row < numberOfRows; row++){
-			for(int col = 0; col < worldWidth; col++){
-				cell.row = row;
-				cell.col = col;
-				updateCell(&cell, matrix, newMatrix, worldWidth, numberOfRows);
-			}
-		}
-
-		printf("MATRIZ new de worker %d\n", rank);
-		count = 1;
-		for(int i = 0; i < N; i++){
-			printf("| %hu |", newMatrix[i]);
-			if(count == 10){
-				count = 1;
-				printf("\n");
-			}
-			else{
-				count++;
-				printf(" ");
-			}
-		}
-		printf("\nFinal de MATRIZ new\n");
-		
-		// Send to master
-
+		executeWorker(rank);
 		MPI_Finalize();
 	}
 

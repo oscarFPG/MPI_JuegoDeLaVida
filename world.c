@@ -22,7 +22,7 @@ void getCellRight (tCoordinate* c, int worldWidth, tCoordinate* destCell){
     destCell->col = c->col < worldWidth-1 ? c->col+1 : 0;
 }
 
-unsigned short int getCellAtWorld (tCoordinate* c, unsigned short* world, int worldWidth){		   
+unsigned short int getCellAtWorld (tCoordinate* c, unsigned short* world, int worldWidth){
 	return world[ (c->row * worldWidth) + c->col ];	
 }
 
@@ -33,16 +33,15 @@ void setCellAt (tCoordinate* c, unsigned short* world, int worldWidth, unsigned 
 void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 
 	tCoordinate cell;
+	unsigned short count = 1;
 	for (int row = 0; row < worldHeight; row++){
 		for (int col = 0; col < worldWidth; col++){
-			cell.row = row;
-			cell.col = col;
-			if ((rand() % 100) < INITIAL_CELLS_PERCENTAGE){					
+			if (0 || (rand() % 100) < INITIAL_CELLS_PERCENTAGE){	
+				cell.row = row;
+				cell.col = col;				
 				setCellAt(&cell, w, worldWidth, CELL_LIVE);
 			}
-			printf("| %hu |", getCellAtWorld(&cell, w, worldWidth));
 		}
-		printf("\n");
 	}
 }
 
@@ -85,6 +84,7 @@ void calculateLonelyCell (){
 	free (matrixC);
 }
 
+//
 void updateCell(tCoordinate* cell, unsigned short* currentWorld, unsigned short* newWorld, int worldWidth, int worldHeight){
 	
 	tCoordinate *otherCell, *aux;

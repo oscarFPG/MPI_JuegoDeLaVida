@@ -10,28 +10,30 @@ void send_number_of_rows_and_size(unsigned short* worldA, int worldWidth, int wo
 
 	unsigned short* i_ptr = worldA;
 	int remainingRows = worldHeight;
-	int rowsPerWorker = (worldHeight % maxWorkers == 0) ? (worldHeight / maxWorkers) : ((worldHeight / maxWorkers) + 1);	// To round
-	int worker = 1;
-	while(worker <= maxWorkers){
+	int rowsPerWorker = 0; 
+	int worker = maxWorkers, i = 0;
+	while(worker != 0){
 
+		rowsPerWorker = (remainingRows % worker == 0) ? (remainingRows / worker) : ((remainingRows / worker) + 1);	// To round
 		// Send world width
-		MPI_Send(&worldWidth, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
+		MPI_Send(&worldWidth, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD);
 
 		// Send size of piece to work with
-		MPI_Send(&rowsPerWorker, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
+		MPI_Send(&rowsPerWorker, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD);
 
 		// Save first position in the world of each worker and number of cells in it
-		masterIndex[worker - 1].baseAddress = i_ptr;
-		masterIndex[worker - 1].size = rowsPerWorker * worldWidth;
-
+		masterIndex[i].baseAddress = i_ptr;
+		masterIndex[i].size = rowsPerWorker * worldWidth;
+		
 		// If the remaining rows to distribute are less that the size we are distributing:
 		// It's the last partition -> Assign it to the last worker
 		remainingRows -= rowsPerWorker;
 		if(remainingRows < rowsPerWorker)
 			rowsPerWorker = remainingRows;
 
-		i_ptr += masterIndex[worker - 1].size;
-		++worker;
+		i_ptr += masterIndex[i].size;
+		--worker;
+		i++;
 	}
 }
 
@@ -42,8 +44,8 @@ void send_board_partitions(const unsigned short* worldA, const int workers, cons
 		int workerID = w + 1;
 		unsigned short* start = masterIndex[w].baseAddress;
 		int numberOfCells = masterIndex[w].size;
-		if(numberOfCells > maxSize)
-			maxSize = numberOfCells;
+		if(numberOfCells > *maxSize)
+			*maxSize = numberOfCells;
 
 		// Send auxiliar row above
 		unsigned short* rowFromAbove;
