@@ -102,7 +102,7 @@ int main(int argc, char* argv[]){
 		wrongUsage (rank, "Wrong distribution mode, please select [static|dynamic grainSize]\n", argv[0]);	
 	
 	// Randomize the generator
-	srand (SEED);
+	srand(SEED);
 	
 	// Master process
 	if (rank == MASTER){		
@@ -111,21 +111,7 @@ int main(int argc, char* argv[]){
 		if(SDL_Init(SDL_INIT_VIDEO) < 0){
 			showError ("Error initializing SDL\n");
 			exit (0);
-		}			
-		// Create window
-		window = SDL_CreateWindow("Práctica 3 de PSD",
-									0, 0,
-									worldWidth * CELL_SIZE, worldHeight * CELL_SIZE,
-									SDL_WINDOW_SHOWN);			
-
-		// Check if the window has been successfully created
-		if(window == NULL){
-			showError("Window could not be created!\n");
-			exit(0);
 		}
-		
-		// Create a renderer
-		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 							
 		// Show parameters...
 		printf ("Executing with:\n");			
@@ -143,79 +129,19 @@ int main(int argc, char* argv[]){
 		
 		// Set timer
 		startTime = MPI_Wtime();
-		
-		// Masters action
-		int num_workers = size - 1;
-		int maxSize = 0;
-		unsigned short* worldA = (unsigned short*) malloc(sizeof(unsigned short) * worldWidth * worldHeight);
-		unsigned short* worldB = (unsigned short*) malloc(sizeof(unsigned short) * worldWidth * worldHeight);
-		tWorkerInfo* masterIndex = malloc(num_workers * sizeof(tWorkerInfo));
-		MPI_Status status;
 
-		// Inicializar mundos
-		clearWorld(worldA, worldWidth, worldHeight);
-		clearWorld(worldB, worldWidth, worldHeight);
-
-		// Create a random world		
-		initRandomWorld(worldA, worldWidth, worldHeight);
-
-		// Show initial state
-		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
-		SDL_RenderClear(renderer);
-		drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
-		SDL_RenderPresent(renderer);
-		SDL_UpdateWindowSurface(window);
-
-		// Mandar numero de filas y tamaño de fila
-		send_number_of_rows_and_size(worldA, worldWidth, worldHeight, num_workers, masterIndex);
-
-		// Enviar porciones de mapa
-		send_board_partitions(worldA, num_workers, worldWidth, worldHeight, masterIndex, &maxSize);
-
-		unsigned short* auxiliar = malloc(sizeof(unsigned short) * maxSize);
-		int workersLeft = size - 1;
-		calculateLonelyCell();
-		calculateLonelyCell();
-		calculateLonelyCell();
-		calculateLonelyCell();
-		calculateLonelyCell();
-		while(1){}
-
-
-		// Bucle de juego
-		int currentIteration = 0;
-		while(currentIteration < totalIterations){
-			
-			// Clear renderer
-			SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
-			SDL_RenderClear(renderer);
-
-			// Enviar porciones de mapa
-			send_board_partitions(worldA, num_workers, worldWidth, worldHeight, masterIndex, &maxSize);
-
-			// Mostrar por pantalla
-			drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
-
-			// Update surface
-			SDL_RenderPresent(renderer);
-			SDL_UpdateWindowSurface(window);
-			SDL_Delay(300);
-
-			++currentIteration;
-		}
+		executeMaster(worldWidth, worldHeight, size - 1, totalIterations);
 
 		// Set timer
 		endTime = MPI_Wtime();
 		printf ("Total execution time:%f seconds\n", endTime-startTime);
-		MPI_Finalize();
 	}
 	
 	// Workers
 	else{
-		
-		executeWorker(rank);
-		MPI_Finalize();
+		executeWorker(rank, totalIterations);
 	}
 
+	MPI_Finalize();
     return 0;
 }

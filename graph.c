@@ -40,7 +40,7 @@ void drawWorld (unsigned short *currentWorld, unsigned short *newWorld, SDL_Rend
 				int worldWidth, int worldHeight){
 	
 	tCoordinate cell;
-	for (int col=0; col < worldWidth; col++){
+	for (int col = 0; col < worldWidth; col++){
 		for (int row = firstRow; row <= lastRow; row++){
 		
 			cell.row = row;

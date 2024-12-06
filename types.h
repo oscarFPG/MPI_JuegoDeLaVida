@@ -9,13 +9,13 @@
 #define SEED 123
 
 // Size of the matrix (calculation for the lonely cells)
-#define MATRIX_SIZE 10
+#define MATRIX_SIZE 3
 
 // Percentage of initial cells
 #define INITIAL_CELLS_PERCENTAGE 30
 
 // Cell size (in pixels)
-#define CELL_SIZE  6
+#define CELL_SIZE  10
 
 // States of the cells
 #define CELL_LIVE 1

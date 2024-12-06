@@ -1,7 +1,6 @@
 #include "worker.h"
 
 void receive_sizes_of_work(int rank, int* worldWidth, int* numberOfRows){
-
     MPI_Recv(worldWidth, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
     MPI_Recv(numberOfRows, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
 }
@@ -18,70 +17,58 @@ void receive_world_partition(unsigned short* partition, const int partitionSize,
     MPI_Recv(partition + partitionSize + worldWidth, worldWidth, MPI_UNSIGNED_SHORT, MASTER, 0, MPI_COMM_WORLD, NULL); 
 }
 
-void executeWorker(const int rank){
+void update_world_portion(unsigned short* world, unsigned short* newWorld, const int worldWidth, const int worldHeigth){
 
-    unsigned short* workerWorld = NULL;
-    int portionSize = 0;
-    int worldWidth, numberOfRows;
-
-    receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
-    
-    printf("worker %d with %d rows and %d width\n", rank, numberOfRows, worldWidth);
-
-    portionSize = numberOfRows * worldWidth;
-    workerWorld = malloc(sizeof(unsigned short) * (portionSize + worldWidth + worldWidth));
-    receive_world_partition(workerWorld, portionSize, worldWidth);
-    
-    if(rank == 1) {
-        printf("Mundo worker %d\n", rank);
-        int count = 1;
-        for(int j = 0; j < (portionSize + worldWidth + worldWidth); j++){
-            printf("| %hu |", workerWorld[j]);
-            if(count == worldWidth){
-                count = 1;
-                printf("\n");
-            }
-            else{
-                count++;
-                printf(" ");
-            }
-        }
-        printf("\n\n");
-    }
-    
-
-    // Update the working size of the world
-    unsigned short* iniWorkingPortion = (workerWorld + worldWidth);
-    unsigned short* newPortion = malloc(sizeof(unsigned short) * portionSize);
-   
     tCoordinate cell;
-    for(int row = 1; row < numberOfRows; row++){
+    for(int row = 0; row < worldHeigth; row++){
         for(int col = 0; col < worldWidth; col++){
             cell.row = row;
             cell.col = col;
-            updateCell(&cell, iniWorkingPortion, newPortion, worldWidth, numberOfRows);
+            updateCell(&cell, world, newWorld, worldWidth, worldHeigth);
         }
     }
-    
-    //updateWorld(iniWorkingPortion, newPortion, worldWidth, numberOfRows + 2, numberOfRows, 1);
+}
 
-    if(rank == 1) {
-        printf("Mundo Update worker %d\n", rank);
-        int count = 1;
-        for(int j = 0; j < portionSize; j++){
-            printf("| %hu |", newPortion[j]);
-            if(count == worldWidth){
-                count = 1;
-                printf("\n");
-            }
-            else{
-                count++;
-                printf(" ");
-            }
-        }
-        printf("\n\n");
+void send_world_partition(unsigned short* world, const int size){
+    MPI_Send(world, size, MPI_UNSIGNED_SHORT, MASTER, 0, MPI_COMM_WORLD);
+}
+
+
+// Worker execution
+void executeWorker(const int rank, const int totalIterations){
+
+    unsigned short* workerWorld = NULL;
+    unsigned short* iniWorkingPortion = NULL;
+    unsigned short* newWorldPortion = NULL;
+    int worldWidth, numberOfRows, worldPortionSize = 0;
+
+
+    receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
+
+    // Alocate memory for the worker partition
+    worldPortionSize = numberOfRows * worldWidth;
+    workerWorld = malloc(sizeof(unsigned short) * (worldPortionSize + worldWidth + worldWidth));
+
+    // Define the start of the working portion and allocate memory to store the new world generated
+    iniWorkingPortion = (workerWorld + worldWidth);
+    newWorldPortion = malloc(sizeof(unsigned short) * worldPortionSize);
+
+    int currentIteration = 0;
+    while(currentIteration < totalIterations){
+        
+        // Receive world partition
+        receive_world_partition(workerWorld, worldPortionSize, worldWidth);
+
+        // Update the working size of the world
+        update_world_portion(iniWorkingPortion, newWorldPortion, worldWidth, numberOfRows);
+
+        // Send to master
+        send_world_partition(newWorldPortion, worldPortionSize);
+
+        ++currentIteration;
     }
 
-    return;
-    // Send to master
+    // Free memory
+    free(workerWorld);
+    free(newWorldPortion);
 }

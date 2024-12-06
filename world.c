@@ -33,10 +33,9 @@ void setCellAt (tCoordinate* c, unsigned short* world, int worldWidth, unsigned 
 void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 
 	tCoordinate cell;
-	unsigned short count = 1;
 	for (int row = 0; row < worldHeight; row++){
 		for (int col = 0; col < worldWidth; col++){
-			if (0 || (rand() % 100) < INITIAL_CELLS_PERCENTAGE){	
+			if ((rand() % 100) < INITIAL_CELLS_PERCENTAGE){	
 				cell.row = row;
 				cell.col = col;				
 				setCellAt(&cell, w, worldWidth, CELL_LIVE);
@@ -84,10 +83,10 @@ void calculateLonelyCell (){
 	free (matrixC);
 }
 
-//
 void updateCell(tCoordinate* cell, unsigned short* currentWorld, unsigned short* newWorld, int worldWidth, int worldHeight){
 	
-	tCoordinate *otherCell, *aux;
+	tCoordinate* otherCell = malloc(sizeof(tCoordinate));
+	tCoordinate* aux = malloc(sizeof(tCoordinate));
 	unsigned short cellValue;
 	int neighbours = 0;
 
@@ -151,14 +150,14 @@ void updateCell(tCoordinate* cell, unsigned short* currentWorld, unsigned short*
 	// Cell is still alive
 	if (cellValue == CELL_LIVE && ((neighbours == 2) || (neighbours == 3)))
 		setCellAt(cell, newWorld, worldWidth, CELL_LIVE);
-				
+		
 	// New cell is born
 	else if (cellValue == CELL_EMPTY && (neighbours == 3))
 		setCellAt(cell, newWorld, worldWidth, CELL_LIVE);
 	
 	// Cell is dead
 	else
-		setCellAt(cell, newWorld, worldWidth, CELL_EMPTY);							
+		setCellAt(cell, newWorld, worldWidth, CELL_EMPTY);			
 }
 
 void updateWorld (unsigned short *currentWorld, unsigned short *newWorld, int worldWidth, int worldHeight){
