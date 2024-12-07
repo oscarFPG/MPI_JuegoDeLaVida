@@ -29,7 +29,7 @@ void update_world_portion(unsigned short* world, unsigned short* newWorld, const
     }
 }
 
-void send_world_partition(unsigned short* world, const int size){
+void send_world_partition_to_master(unsigned short* world, const int size){
     MPI_Send(world, size, MPI_UNSIGNED_SHORT, MASTER, 0, MPI_COMM_WORLD);
 }
 
@@ -63,7 +63,7 @@ void executeWorker(const int rank, const int totalIterations){
         update_world_portion(iniWorkingPortion, newWorldPortion, worldWidth, numberOfRows);
 
         // Send to master
-        send_world_partition(newWorldPortion, worldPortionSize);
+        send_world_partition_to_master(newWorldPortion, worldPortionSize);
 
         ++currentIteration;
     }

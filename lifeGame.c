@@ -105,7 +105,7 @@ int main(int argc, char* argv[]){
 	srand(SEED);
 	
 	// Master process
-	if (rank == MASTER){		
+	if (rank == MASTER){
 		
 		// Init video mode	
 		if(SDL_Init(SDL_INIT_VIDEO) < 0){
@@ -129,8 +129,12 @@ int main(int argc, char* argv[]){
 		
 		// Set timer
 		startTime = MPI_Wtime();
-
-		executeMaster(worldWidth, worldHeight, size - 1, totalIterations);
+		
+		// Master execution based on type of world distribution
+		if(distModeStatic)
+			masterStaticExecution (worldWidth, worldHeight, size - 1, totalIterations, autoMode);
+		else
+			masterDynamicExecution(worldWidth, worldHeight, size - 1, totalIterations, autoMode, grainSize);
 
 		// Set timer
 		endTime = MPI_Wtime();

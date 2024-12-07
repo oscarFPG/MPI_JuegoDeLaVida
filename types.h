@@ -9,13 +9,13 @@
 #define SEED 123
 
 // Size of the matrix (calculation for the lonely cells)
-#define MATRIX_SIZE 3
+#define MATRIX_SIZE 1
 
 // Percentage of initial cells
-#define INITIAL_CELLS_PERCENTAGE 30
+#define INITIAL_CELLS_PERCENTAGE 50
 
 // Cell size (in pixels)
-#define CELL_SIZE  10
+#define CELL_SIZE 50
 
 // States of the cells
 #define CELL_LIVE 1
@@ -40,4 +40,3 @@ typedef struct coordinate{
 }tCoordinate;
 
 #endif
-
