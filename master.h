@@ -19,7 +19,7 @@ typedef struct {
 
 
 void send_static_sizes(unsigned short* world, int worldWidth, int worldHeight, int workers, tWorkerInfo* masterIndex, int* maxSize);
-void send_dynamic_sizes(unsigned short* world, int worldWidth, int worldHeight, const int maxWorkers, tWorkerInfo* masterIndex, const int granSize);
+void send_dynamic_sizes(unsigned short* world, int worldWidth, int worldHeight, const int maxWorkers, tWorkerInfo* masterIndex, const int grainSize);
 
 void send_world_partition(unsigned short* rowAbove, unsigned short* partition, unsigned short* rowUnder, const int auxSize, const int partitionSize, const int workerID);
 void send_all_world_partitions(const unsigned short* world, const int workers, const int worldWidth, const int worldHeight, tWorkerInfo* masterIndex);

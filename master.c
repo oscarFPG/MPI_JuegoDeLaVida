@@ -1,7 +1,63 @@
 #include "master.h"
 
+// ----------------------------------------------- OUR AUXILIARY FUNTIONS ----------------------------------------------- //
+void send_world_partition(unsigned short* rowAbove, unsigned short* partition, unsigned short* rowUnder, const int auxSize, const int partitionSize, const int workerID){
+	MPI_Send(rowAbove, auxSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
+	MPI_Send(partition, partitionSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
+	MPI_Send(rowUnder, auxSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
+}
 
-// ------------------------------------- DISTRIBUTION TYPES ------------------------------------- //
+void generate_cataclysm(unsigned short* world, const int worldWidth, const int worldHeight, const int fila, const int columna){
+
+	tCoordinate cell;
+	unsigned short cellValue;
+
+	// Eliminar las celdas de arriba
+	cell.col = columna;
+	for(int f = fila - 1; 0 <= f; f--){
+		cell.row = f;
+		cellValue = getCellAtWorld(&cell, world, worldWidth);
+		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
+			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+	}
+
+	// Eliminar las celdas de abajo
+	cell.col = columna;
+	for(int f = fila + 1; f < worldHeight; f++){
+		cell.row = f;
+		cellValue = getCellAtWorld(&cell, world, worldWidth);
+		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
+			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+	}
+
+	// Eliminar las celdas de la izquierda
+	cell.row = fila;
+	for(int c = columna - 1; 0 <= c; c--){
+		cell.col = c;
+		cellValue = getCellAtWorld(&cell, world, worldWidth);
+		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
+			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+	}
+
+	// Eliminar las celdas de la derecha
+	cell.row = fila;
+	for(int c = columna + 1; c < worldHeight; c++){
+		cell.col = c;
+		cellValue = getCellAtWorld(&cell, world, worldWidth);
+		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
+			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+	}
+
+	// Eliminar celda central
+	cell.row = fila;
+	cell.col = columna;
+	cellValue = getCellAtWorld(&cell, world, worldWidth);
+	if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
+		setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+}
+// ----------------------------------------------- OUR AUXILIARY FUNTIONS ----------------------------------------------- //
+
+// -------------------------------------------------- ESTATIC FUNTIONS -------------------------------------------------- //
 void send_static_sizes(unsigned short* world, int worldWidth, int worldHeight, int maxWorkers, tWorkerInfo* masterIndex, int* maxSize) {
 
 	unsigned short* i_ptr = world;
@@ -37,44 +93,6 @@ void send_static_sizes(unsigned short* world, int worldWidth, int worldHeight, i
 		--worker;
 		i++;
 	}
-}
-
-void send_dynamic_sizes(unsigned short* world, int worldWidth, int worldHeight, const int maxWorkers, tWorkerInfo* masterIndex, const int granSize){
-
-	unsigned short* i_ptr = world;
-	int remainingRows = worldHeight;
-	int rowsPerWorker = granSize; 
-	int worker = maxWorkers, i = 0, offset = 0;
-	while(worker != 0){
-
-		// Send world width
-		MPI_Send(&worldWidth, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD);
-
-		// Send size of piece to work with
-		MPI_Send(&rowsPerWorker, 1, MPI_INT, i + 1, 0, MPI_COMM_WORLD);
-
-		// Save first position in the world of each worker and number of cells in it
-		masterIndex[i].baseAddress = i_ptr;
-		masterIndex[i].size = rowsPerWorker * worldWidth;
-		masterIndex[i].offset = offset;
-		
-		// If the remaining rows to distribute are less that the size we are distributing:
-		// It's the last partition -> Assign it to the last worker
-		remainingRows -= rowsPerWorker;
-		if(remainingRows < rowsPerWorker)
-			rowsPerWorker = remainingRows;
-
-		i_ptr += masterIndex[i].size;
-		offset += masterIndex[i].size;
-		--worker;
-		i++;
-	}
-}
-
-void send_world_partition(unsigned short* rowAbove, unsigned short* partition, unsigned short* rowUnder, const int auxSize, const int partitionSize, const int workerID){
-	MPI_Send(rowAbove, auxSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
-	MPI_Send(partition, partitionSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
-	MPI_Send(rowUnder, auxSize, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
 }
 
 void send_all_world_partitions(const unsigned short* world, const int workers, const int worldWidth, const int worldHeight, tWorkerInfo* masterIndex){
@@ -129,57 +147,51 @@ void receive_world_partitions(unsigned short* world, const int worldWidth, const
 
 	free(aux);
 }
+// -------------------------------------------------- ESTATIC FUNTIONS -------------------------------------------------- //
 
-void generate_cataclysm(unsigned short* world, const int worldWidth, const int worldHeight, const int fila, const int columna){
+// -------------------------------------------------- DINAMIC FUNTIONS -------------------------------------------------- //
+void send_dynamic_sizes(unsigned short* world, int worldWidth, int worldHeight, const int maxWorkers, tWorkerInfo* masterIndex, const int grainSize){
 
-	tCoordinate cell;
-	unsigned short cellValue;
+	unsigned short* i_ptr = world;
+	int remainingRows = worldHeight;
+	int rowsPerWorker = grainSize; //Mirar si puede quedarse trabajador sin trabajo en la primera iteracion
+	int worker = 1, offset = 0;
+	while(worker <= maxWorkers) {
 
-	// Eliminar las celdas de arriba
-	cell.col = columna;
-	for(int f = fila - 1; 0 <= f; f--){
-		cell.row = f;
-		cellValue = getCellAtWorld(&cell, world, worldWidth);
-		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
-			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
+		if(remainingRows == 0){
+			MPISend(NULL, NULL, NULL, worker, 0, MPI_COMM_WORLD);//Cerrar,Dormir,...
+			masterIndex[i].baseAddress = world;
+			masterIndex[i].size = -1;
+			masterIndex[i].offset = -1;
+		}
+		else {
+
+			if(remainingRows < grainSize)
+				rowsPerWorker = remainingRows;
+			else
+				rowsPerWorker = grainSize;
+
+			// Send world width
+			MPI_Send(&worldWidth, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
+
+			// Send size of piece to work with
+			MPI_Send(&rowsPerWorker, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
+
+			// Save first position in the world of each worker and number of cells in it
+			masterIndex[i].baseAddress = i_ptr;
+			masterIndex[i].size = rowsPerWorker * worldWidth;
+			masterIndex[i].offset = offset;
+
+			remainingRows -= rowsPerWorker;
+			i_ptr += masterIndex[i].size;
+			offset += masterIndex[i].size;
+		}
+		worker++;	
 	}
-
-	// Eliminar las celdas de abajo
-	cell.col = columna;
-	for(int f = fila + 1; f < worldHeight; f++){
-		cell.row = f;
-		cellValue = getCellAtWorld(&cell, world, worldWidth);
-		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
-			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
-	}
-
-	// Eliminar las celdas de la izquierda
-	cell.row = fila;
-	for(int c = columna - 1; 0 <= c; c--){
-		cell.col = c;
-		cellValue = getCellAtWorld(&cell, world, worldWidth);
-		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
-			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
-	}
-
-	// Eliminar las celdas de la derecha
-	cell.row = fila;
-	for(int c = columna + 1; c < worldHeight; c++){
-		cell.col = c;
-		cellValue = getCellAtWorld(&cell, world, worldWidth);
-		if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
-			setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
-	}
-
-	// Eliminar celda central
-	cell.row = fila;
-	cell.col = columna;
-	cellValue = getCellAtWorld(&cell, world, worldWidth);
-	if(cellValue == CELL_LIVE || cellValue == CELL_NEW)
-		setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
 }
+// -------------------------------------------------- DINAMIC FUNTIONS -------------------------------------------------- //
 
-// ------------------------------------- MASTER EXECUTION -------------------------------------
+// -------------------------------------------------- MASTER EXECUTION -------------------------------------------------- //
 void masterStaticExecution(const int worldWidth, const int worldHeight, const int numWorkers, const int totalIterations, const int autoMode){
 
 	// Create window
@@ -325,8 +337,8 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 	unsigned short* world_ptr = NULL, *writer_ptr = NULL;
 	int currentIteration = 0;
 	int cataclysmCycle = 0;
-	int rowsPerWorker = grainSize;
-	int workerID, remainingRows, sizeReceived;
+	int rowsPerWorker;
+	int workerID, workerIndex, remainingRows, sizeReceived;
 	MPI_Status status;
 	while(currentIteration < totalIterations){
 		
@@ -343,42 +355,109 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
 		SDL_RenderClear(renderer);
 
-		// Send world portions to all workers
+		// ------------ Send the First Orde of portions to all workers ------------ //
+		unsigned short* world_Conteo = NULL;
+		int numberRecv = 0;
 		for(int w = 0; w < numWorkers; w++){
 
-			if(remainingRows < rowsPerWorker)
-				rowsPerWorker = remainingRows;
-			
-			MPI_Send(world_ptr, rowsPerWorker * worldWidth, MPI_UNSIGNED_SHORT, w + 1, 0, MPI_COMM_WORLD);
-			world_ptr += (rowsPerWorker * worldWidth);
-			remainingRows -= rowsPerWorker;
-			printf("%d cells sent to worker %d\n", rowsPerWorker, w + 1);
+			if(remainingRows == 0) {
+				MPISend(NULL, NULL, NULL, worker, 0, MPI_COMM_WORLD);//Cerrar,Dormir,...
+			}
+			else {
+
+				if(remainingRows < grainSize)
+					rowsPerWorker = remainingRows;
+				else
+					rowsPerWorker = grainSize;
+				
+				// Auxiliar row above
+				workerID = w + 1;
+				unsigned short* start = masterIndex[w].baseAddress;
+				int numberOfCells = rowsPerWorker * worldWidth;
+
+				// Auxiliar row above
+				unsigned short* rowFromAbove;
+				if(workerID == 1)
+					rowFromAbove = world_ptr + ( (worldWidth * worldHeight) - worldWidth );
+				else
+					rowFromAbove = masterIndex[w].baseAddress - worldWidth;
+				
+				// Auxiliar row from under
+				unsigned short* rowFromUnder;
+				if(remainingRows < grainSize)
+					rowFromUnder = world_ptr;
+				else
+					rowFromUnder = start + (rowsPerWorker * worldWidth );
+
+				send_world_partition(rowFromAbove, start, rowFromUnder, worldWidth, numberOfCells, workerID);
+				printf("%d cells sent to worker %d\n", rowsPerWorker, w + 1);
+
+				//Actu values
+				remainingRows -= rowsPerWorker;
+				numberRecv++;
+				world_Conteo += (rowsPerWorker * worldWidth);
+			}
 		}
+		// ------------ Send the First Orde of portions to all workers ------------ //
 
 		// Wait to the faster worker to end, then receive world partition and send next portion to the same one
-		while(remainingRows != 0){
+		while(remainingRows != 0 && numberRecv != 0){
 			
 			MPI_Recv(aux, grainSize, MPI_UNSIGNED_SHORT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+			numberRecv--;
 
 			// Detect who sent that portion and the siz of it
-			workerID = status.MPI_SOURCE - 1;
+			workerIndex = status.MPI_SOURCE - 1;
+			workerID = workerIndex + 1;
 			MPI_Get_count(&status, MPI_UNSIGNED_SHORT, &sizeReceived);
-			printf("Update of %d cells received from worker %d\n", sizeReceived, workerID);
+			printf("Update of %d cells received from worker %d\n", sizeReceived, workerIndex);
 			
-			// Update that world portion and the new position of the worker
-			writer_ptr = masterIndex[workerID].baseAddress;
+			// Update that world portion //and the new position of the worker
+			writer_ptr = masterIndex[workerIndex].baseAddress;
 			for(int i = 0; i < sizeReceived; i++)
 				writer_ptr[i] = aux[i];
-			masterIndex[workerID].baseAddress = world_ptr;
+			
+			if(remainingRows != 0) {
+				masterIndex[workerIndex].baseAddress = world_Conteo;
 
-			printf("Updating with this cells\n");
-			for(int i = 0; i < sizeReceived; i++)
-				printf("| %hu |", aux[i]);
-			printf("\nNew direction to worker %d is %x\n", workerID, masterIndex[workerID].baseAddress);
+				if(remainingRows < grainSize) {
+					rowsPerWorker = remainingRows;
+					
 
-			MPI_Send(world_ptr, rowsPerWorker * worldWidth, MPI_UNSIGNED_SHORT, workerID, 0, MPI_COMM_WORLD);
-			remainingRows -= rowsPerWorker * worldWidth;
+				}
+				else {
+					rowsPerWorker = grainSize;
+
+				}
+				masterIndex[workerIndex].size = rowsPerWorker;
+				//masterIndex[i].offset = offset;
+				
+
+				// Auxiliar row above
+				unsigned short* start = masterIndex[workerIndex].baseAddress;
+				int numberOfCells = rowsPerWorker * worldWidth;
+
+				// Auxiliar row above
+				unsigned short* rowFromAbove = masterIndex[workerIndex].baseAddress - worldWidth;
+				
+				// Auxiliar row from under
+				unsigned short* rowFromUnder;
+				if(remainingRows < grainSize)
+					rowFromUnder = world_ptr;
+				else
+					rowFromUnder = start + (rowsPerWorker * worldWidth );
+
+				send_world_partition(rowFromAbove, start, rowFromUnder, worldWidth, numberOfCells, workerID);
+				printf("%d cells sent to worker %d\n", rowsPerWorker, w + 1);
+
+				//Actu values
+				remainingRows -= rowsPerWorker;
+				numberRecv++;
+				world_Conteo += (rowsPerWorker * worldWidth);
+				//offset += rowsPerWorker * worldWidth;
+			}
 		}
+		// Wait to the faster worker to end, then receive world partition and send next portion to the same one
 
 		// Update surface
 		SDL_RenderPresent(renderer);
@@ -394,3 +473,4 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 	free(masterIndex);
 	free(aux);
 }
+// -------------------------------------------------- MASTER EXECUTION -------------------------------------------------- //
