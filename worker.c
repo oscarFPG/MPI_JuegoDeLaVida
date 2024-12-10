@@ -63,7 +63,6 @@ void executeWorker(const int rank){
         // Receive world partition
         receive_world_partition(workerWorld, worldPortionSize, worldWidth);
 
-        printf("Worker %d recibe datos\n", R);
         // Update the working size of the world
         //update_world_portion((workerWorld + worldWidth), newWorldPortion, worldWidth, numberOfRows);
 

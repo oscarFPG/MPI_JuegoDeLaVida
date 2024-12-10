@@ -132,7 +132,7 @@ int main(int argc, char* argv[]){
 		
 		// Master execution based on type of world distribution
 		if(distModeStatic)
-			masterStaticExecution (worldWidth, worldHeight, size - 1, totalIterations, autoMode);
+			masterStaticExecution (worldWidth, worldHeight, size - 1, totalIterations, autoMode, outputFile);
 		else
 			masterDynamicExecution(worldWidth, worldHeight, size - 1, totalIterations, autoMode, 1);
 
