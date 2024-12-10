@@ -1,8 +1,6 @@
 #include "worker.h"
 
-int R;
-
-void receive_sizes_of_work(int rank, int* worldWidth, int* numberOfRows){
+void receive_sizes_of_work(int* worldWidth, int* numberOfRows){
     MPI_Recv(worldWidth, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
     MPI_Recv(numberOfRows, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
 }
@@ -37,15 +35,14 @@ void send_world_partition_to_master(unsigned short* world, const int size){
 
 
 // Worker execution
-void executeWorker(const int rank){
+void executeWorker(){
 
     unsigned short* workerWorld = NULL;
     unsigned short* newWorldPortion = NULL;
     int worldWidth, numberOfRows, worldPortionSize = 0;
     int END;
-    R = rank;
 
-    receive_sizes_of_work(rank, &worldWidth, &numberOfRows);
+    receive_sizes_of_work(&worldWidth, &numberOfRows);
 
     // Alocate memory for the worker partition
     worldPortionSize = numberOfRows * worldWidth;
@@ -57,20 +54,19 @@ void executeWorker(const int rank){
     do{
         MPI_Recv(&END, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
 
-        if(END == END_PROCESSING)
-            break;
-
-        // Receive world partition
+        if(END != END_PROCESSING) {
+                 // Receive world partition
         receive_world_partition(workerWorld, worldPortionSize, worldWidth);
 
         // Update the working size of the world
-        //update_world_portion((workerWorld + worldWidth), newWorldPortion, worldWidth, numberOfRows);
+        update_world_portion((workerWorld + worldWidth), newWorldPortion, worldWidth, numberOfRows);
 
         // Send to master
-        send_world_partition_to_master(workerWorld + worldWidth, worldPortionSize);
-        //send_world_partition_to_master(newWorldPortion, worldPortionSize);
+        //send_world_partition_to_master(workerWorld + worldWidth, worldPortionSize);
+        send_world_partition_to_master(newWorldPortion, worldPortionSize);
+        }      
     }
-    while(1);
+    while(END != END_PROCESSING);
 
     // Free memory
     free(workerWorld);

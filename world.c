@@ -36,11 +36,11 @@ void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 	unsigned short count = 1;
 	for (int row = 0; row < worldHeight; row++){
 		for (int col = 0; col < worldWidth; col++){
-			if (1 || (rand() % 100) < INITIAL_CELLS_PERCENTAGE){	
-				cell.row = row;
-				cell.col = col;				
-				setCellAt(&cell, w, worldWidth, count++);
-			}
+			if ((rand()%100)<INITIAL_CELLS_PERCENTAGE){					
+					cell.row = row;
+					cell.col = col;	
+					setCellAt (&cell, w, worldWidth, CELL_LIVE);	
+				}
 		}
 	}
 }
