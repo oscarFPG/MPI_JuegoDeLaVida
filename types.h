@@ -15,7 +15,7 @@
 #define INITIAL_CELLS_PERCENTAGE 50
 
 // Cell size (in pixels)
-#define CELL_SIZE 50
+#define CELL_SIZE 10
 
 // States of the cells
 #define CELL_LIVE 1

@@ -33,14 +33,13 @@ void setCellAt (tCoordinate* c, unsigned short* world, int worldWidth, unsigned 
 void initRandomWorld (unsigned short* w, int worldWidth, int worldHeight){
 
 	tCoordinate cell;
-	unsigned short count = 1;
 	for (int row = 0; row < worldHeight; row++){
 		for (int col = 0; col < worldWidth; col++){
-			if ((rand()%100)<INITIAL_CELLS_PERCENTAGE){					
-					cell.row = row;
-					cell.col = col;	
-					setCellAt (&cell, w, worldWidth, CELL_LIVE);	
-				}
+			if ((rand() % 100) < INITIAL_CELLS_PERCENTAGE){	
+				cell.row = row;
+				cell.col = col;				
+				setCellAt(&cell, w, worldWidth, CELL_LIVE);
+			}
 		}
 	}
 }

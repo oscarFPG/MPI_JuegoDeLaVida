@@ -56,12 +56,34 @@ void generate_cataclysm(unsigned short* world, const int worldWidth, const int w
 		setCellAt(&cell, world, worldWidth, CELL_CATACLYSM);
 }
 
-void send_flag_to_workers(const int flag, const int workers){
-
-	for(int w = 0; w < workers; w++){
-		MPI_Send(&flag, 1, MPI_INT, w + 1, 0, MPI_COMM_WORLD);
-	}
+void send_flag(const int flag, const int workerID){
+	MPI_Send(&flag, 1, MPI_INT, workerID, 0, MPI_COMM_WORLD);
 }
+
+void send_flag_to_workers(const int flag, const int workers){
+	for(int w = 0; w < workers; w++)
+		send_flag(flag, w + 1);
+}
+
+void get_next_row_indexes(int* rowAbove, int* workRow, int* rowUnder,
+						const int worldHeight, const int grainSize){
+
+	// Update above row index
+	if(*rowAbove == worldHeight - 1)
+		*rowAbove = 0;
+	else
+		*rowAbove = *rowUnder - 1;
+
+	// Update working row index
+	*workRow = *rowUnder;
+
+	// Update under row index
+	if(*rowUnder == worldHeight - 1)
+		*rowUnder = 0;
+	else
+		*rowUnder = *rowUnder + grainSize;
+}
+
 
 // -------------------------------------------------- ESTATIC FUNCTIONS -------------------------------------------------- //
 void send_static_sizes(unsigned short* world, int worldWidth, int worldHeight, int maxWorkers, tWorkerInfo* masterIndex, int* maxSize) {
@@ -156,9 +178,8 @@ void receive_world_partitions(unsigned short* world, const int worldWidth, const
 
 
 // -------------------------------------------------- DINAMIC FUNTIONS -------------------------------------------------- //
-void send_dynamic_sizes(tWorkerInfo* masterIndex, const int numWorkers, const int worldWidth, const int grainSize){
+void send_dynamic_sizes(const int numWorkers, const int worldWidth, const int grainSize){
 
-	int offset = 0;
 	for(int w = 0; w < numWorkers; w++){
 
 		// Send world width
@@ -166,15 +187,78 @@ void send_dynamic_sizes(tWorkerInfo* masterIndex, const int numWorkers, const in
 
 		// Send size of piece to work with
 		MPI_Send(&grainSize, 1, MPI_INT, w + 1, 0, MPI_COMM_WORLD);
-
-		masterIndex[w].offset = offset;
-		offset += grainSize;
 	}
 }
-// -------------------------------------------------- DINAMIC FUNTIONS -------------------------------------------------- //
+
+int send_initial_portions_to_workers(unsigned short* world, const int worldWidth, const int worldHeight,
+									int* rowABove, int* rowStart, int* rowUnder,
+									const int grainSize, const int numWorkers,
+									tWorkerInfo* masterIndex){
+	
+	unsigned short* rowAbove_ptr;
+	unsigned short* rowStart_ptr;
+	unsigned short* rowUnder_ptr;
+	int rowAboveIndex = *rowABove;
+	int rowStartIndex = *rowStart;
+	int rowUnderIndex = *rowUnder;
+	int rows_sent = 0;
+	for(int w = 0; w < numWorkers; w++){
+		
+		rowAbove_ptr = world + (rowAboveIndex * worldWidth);
+		rowStart_ptr = world + (rowStartIndex * worldWidth);
+		rowUnder_ptr = world + (rowUnderIndex * worldWidth);
+
+		masterIndex[w].above_row = rowAboveIndex;
+		masterIndex[w].start_row = rowStartIndex;
+		masterIndex[w].under_row = rowUnderIndex;
+
+		send_world_partition(rowAbove_ptr, rowStart_ptr, rowUnder_ptr, worldWidth, grainSize * worldWidth, w + 1);
+		get_next_row_indexes(&rowAboveIndex, &rowStartIndex, &rowUnderIndex, worldHeight, grainSize);
+		rows_sent += grainSize;
+	}
+
+	*rowABove = rowAboveIndex;
+	*rowStart = rowStartIndex;
+	*rowUnder = rowUnderIndex;
+	return rows_sent;
+}
+
+void receive_and_send_to_same_worker(unsigned short** currentWorld, unsigned short** nextWorld, 
+									const int worldWidth, const int worldHeight, const int grainSize, 
+									int currentRow, int* receivesLeft, tWorkerInfo* masterIndex,
+									int* rowABove, int* rowStart, int* rowUnder){
+
+	unsigned short* world = *currentWorld;
+	unsigned short* newWorld = *nextWorld;
+	unsigned short* aux = malloc(sizeof(unsigned short) * grainSize * worldWidth);
+	int sizeReceived, worker;
+	MPI_Status status;
+
+	MPI_Recv(aux, grainSize * worldWidth, MPI_UNSIGNED_SHORT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+	MPI_Get_count(&status, MPI_UNSIGNED_SHORT, &sizeReceived);
+	worker = status.MPI_SOURCE;	
+	receivesLeft = receivesLeft - 1;
+
+	for(int i = 0; i < sizeReceived; i++)
+		newWorld[ (worldWidth * masterIndex[worker - 1].start_row) + i ] = aux[i];
+	
+	masterIndex[worker - 1].above_row = *rowABove;
+	masterIndex[worker - 1].start_row = *rowStart;
+	masterIndex[worker - 1].under_row = *rowUnder;
+
+	send_flag(1, worker);
+	send_world_partition(world + (*rowABove * worldWidth), 
+						world + (*rowStart * worldWidth), 
+						world + (*rowUnder + worldWidth),
+						worldWidth, grainSize * worldWidth, worker);
+
+	receivesLeft = receivesLeft + 1;	
+	free(aux);
+}
+
 
 // -------------------------------------------------- MASTER EXECUTION -------------------------------------------------- //
-void masterStaticExecution(const int worldWidth, const int worldHeight, const int numWorkers, const int totalIterations, const int autoMode){
+void masterStaticExecution(const int worldWidth, const int worldHeight, const int numWorkers, const int totalIterations, const int autoMode, char* filename){
 
 	// Create window
 	SDL_Window* window = SDL_CreateWindow(
@@ -205,14 +289,6 @@ void masterStaticExecution(const int worldWidth, const int worldHeight, const in
 	// Create a random world		
 	initRandomWorld(worldA, worldWidth, worldHeight);
 
-	// Show first world state
-	SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
-	SDL_RenderClear(renderer);
-	drawWorld(worldA, worldB, renderer, 0, worldHeight, worldWidth, worldHeight);
-	SDL_RenderPresent(renderer);
-	SDL_UpdateWindowSurface(window);
-	SDL_Delay(400);
-
 	// Send to workers sizes of their partition
 	send_static_sizes(worldA, worldWidth, worldHeight, numWorkers, masterIndex, &maxSize);
 
@@ -239,8 +315,10 @@ void masterStaticExecution(const int worldWidth, const int worldHeight, const in
 			// Make cataclysm
 			if(cataclysmCycle == ITER_CATACLYSM){
 				cataclysmCycle = 0;
-				if((rand() % 100) < PROB_CATACLYSM)
+				if((rand() % 100) < PROB_CATACLYSM){
 					generate_cataclysm(worldA, worldWidth, worldHeight, worldHeight / 2, worldWidth / 2);
+					printf("SE CREO UN CATACLISMO EN LA ITERACION %d!\n", currentIteration + 1);
+				}
 			}
 
 			send_all_world_partitions(worldA, numWorkers, worldWidth, worldHeight, masterIndex);
@@ -252,8 +330,10 @@ void masterStaticExecution(const int worldWidth, const int worldHeight, const in
 			// Make cataclysm
 			if(cataclysmCycle == ITER_CATACLYSM){
 				cataclysmCycle = 0;
-				if((rand() % 100) <= PROB_CATACLYSM)
+				if((rand() % 100) <= PROB_CATACLYSM){
+					printf("SE CREO UN CATACLISMO EN LA ITERACION %d!\n", currentIteration + 1);
 					generate_cataclysm(worldB, worldWidth, worldHeight, worldHeight / 2, worldWidth / 2);
+				}
 			}
 
 			send_all_world_partitions(worldB, numWorkers, worldWidth, worldHeight, masterIndex);
@@ -274,11 +354,15 @@ void masterStaticExecution(const int worldWidth, const int worldHeight, const in
 	free(worldA);
 	free(worldB);
 	free(masterIndex);
+
+	if(filename != NULL){
+		saveImage(renderer, filename, worldWidth * CELL_SIZE, worldHeight * CELL_SIZE);
+		printf("Copia en el archivo %s hecha!\n", filename);
+	}
 }
 
 void masterDynamicExecution(const int worldWidth, const int worldHeight, const int numWorkers, const int totalIterations, const int autoMode, const int grainSize){
 
-	
 	// Create window
 	SDL_Window* window = SDL_CreateWindow(
 						"Práctica 3 de PSD", 
@@ -294,13 +378,12 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 	
 	// Create a renderer
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	
 
 	// Sim logic
 	unsigned short* worldA = (unsigned short*) malloc(sizeof(unsigned short) * worldWidth * worldHeight);
 	unsigned short* worldB = (unsigned short*) malloc(sizeof(unsigned short) * worldWidth * worldHeight);
 	tWorkerInfo* masterIndex = malloc(sizeof(tWorkerInfo) * numWorkers);
-	MPI_Status status;
+	int flag;
 
 	// Inicializar mundos
 	clearWorld(worldA, worldWidth, worldHeight);
@@ -318,108 +401,66 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 	SDL_Delay(400);
 
 	// Send to workers sizes of their partition
-	send_dynamic_sizes(masterIndex, numWorkers, worldWidth, grainSize);
+	send_dynamic_sizes(numWorkers, worldWidth, grainSize);
 
 	// Game loop
-	unsigned short* aux = malloc(sizeof(unsigned short) * grainSize);
-	unsigned short* world_ptr = NULL, *newWorld_ptr = NULL, *writer_ptr = NULL;
-	int rowsPerWorker;
-	int workerID, workerIndex, remainingRows, sizeReceived;
-	
 	int currentIteration = 0;
 	int cataclysmCycle = 0;
-	int numberOfReceives;
-	int offset = masterIndex[numWorkers - 1].offset;
 	while(currentIteration < totalIterations){
 
 		send_flag_to_workers(1, numWorkers);
 
-		printf("ITERACION %d\n", currentIteration);
+		printf("ITERACION %d\n", currentIteration + 1);
 		if(autoMode == 0){
 			printf("Press ENTER to continue execution...\n");
 			getchar();
 		}
 
-		world_ptr = (currentIteration % 2 == 0) ? worldA : worldB;
-		writer_ptr = (currentIteration % 2 == 0) ? worldA : worldB;
-		newWorld_ptr = (currentIteration % 2 != 0) ? worldA : worldB;
+		// Actualizar la informacion de los workers -> Fila que contienen
+		int aboveRowIndex = worldHeight - 1;
+		int startRowIndex = 0;
+		int underRowIndex = grainSize;
+		int receivesLeft = 0;
+		int currentRow = 0;
 
-		remainingRows = worldHeight;
-		numberOfReceives = 0;
+		// Mandar a todos los workers su primera porcion del mundo
+		unsigned short* world_ptr = (currentIteration % 2 == 0) ? worldA : worldB;
+		unsigned short* newWorld_ptr = (currentIteration % 2 == 0) ? worldB : worldA;
 
-		// Enviar primera seccion de mapa a todos los workers
-		unsigned short* rowFromAbove = world_ptr + ( (worldWidth * worldHeight) - worldWidth );
-		unsigned short* rowFromUnder = world_ptr + (grainSize * worldWidth);
-		for(int w = 0; w < numWorkers; w++){
+		currentRow += send_initial_portions_to_workers(world_ptr, worldWidth, worldHeight, 
+													&aboveRowIndex, &startRowIndex, &underRowIndex,
+													grainSize, numWorkers,
+													masterIndex);
+		receivesLeft += numWorkers;
+
+		while(currentRow < worldHeight){
+			receive_and_send_to_same_worker(&world_ptr, &newWorld_ptr, 
+											worldWidth, worldHeight, grainSize, 
+											currentRow, &receivesLeft, masterIndex,
+											&aboveRowIndex, &startRowIndex, &underRowIndex);
 			
-			workerID = w + 1;
-			count = 1;
-
-			if(workerID == numWorkers && remainingRows <= grainSize)
-				rowFromUnder = world_ptr;
-
-			send_world_partition(rowFromAbove, writer_ptr, rowFromUnder, worldWidth, grainSize * worldWidth, workerID);
-
-			// Actualizar punteros y variables
-			rowFromAbove = rowFromUnder - worldWidth;
-			writer_ptr = rowFromUnder;
-			rowFromUnder += (grainSize * worldWidth);
-			numberOfReceives++;
-			remainingRows -= grainSize;
+			get_next_row_indexes(&aboveRowIndex, &startRowIndex, &underRowIndex, worldHeight, grainSize);
+			currentRow++;
 		}
 
-		// Esperar a recibir y enviar al mismo worker
-		while(numberOfReceives != 0){
+		while(receivesLeft > 0){
 
-			// Recibir
+			unsigned short* aux = malloc(sizeof(unsigned short) * grainSize * worldWidth);
+			int sizeReceived;
+			MPI_Status status;
+
 			MPI_Recv(aux, grainSize * worldWidth, MPI_UNSIGNED_SHORT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_UNSIGNED_SHORT, &sizeReceived);
-			workerID = status.MPI_SOURCE;
-			numberOfReceives--;
-			printf("He recibido datos del worker %d - quedan por enviar %d recibir %d filas\n", workerID, remainingRows, numberOfReceives);
+			int worker = status.MPI_SOURCE;	
 
-			// Actualizar nuevo mundo
-			int k = masterIndex[workerID - 1].offset;
-			for(int i = 0; i < sizeReceived; i++){
-				if(currentIteration % 2 == 0)
-					worldB[k + i] = aux[i];//aux mal y no vuelca datos
-				else
-					worldA[k + i] = aux[i];
-			}
+			for(int i = 0; i < sizeReceived; i++)
+				newWorld_ptr[ worldWidth * masterIndex[worker - 1].start_row + i ] = aux[i];
 			
-
-			// Enviar al mismo worker mas trabajo, si queda
-			if(remainingRows > 0){
-				
-				int flag = 1;
-				MPI_Send(&flag, 1, MPI_INT, workerID, 0, MPI_COMM_WORLD);
-
-				unsigned short* rowFromAbove = writer_ptr - worldWidth;
-			
-				// Auxiliar row from under
-				unsigned short* rowFromUnder;
-				if(writer_ptr + ((grainSize - 1) * worldWidth) >= world_ptr + ( (worldWidth * worldHeight) - worldWidth ))
-					rowFromUnder = world_ptr;
-				else
-					rowFromUnder = writer_ptr + (grainSize * worldWidth);
-
-				send_world_partition(rowFromAbove, writer_ptr, rowFromUnder, worldWidth, grainSize * worldWidth, workerID);
-
-				offset += grainSize;
-				masterIndex[workerID - 1].offset = offset;
-				numberOfReceives++;
-				writer_ptr += (grainSize * worldWidth);
-				remainingRows -= grainSize;
-			}
-
+			receivesLeft--;
+			free(aux);
 		}
 
-		printf("HEMOS ENVIADO Y RECIBIDO TODO\n");
-
-		if(currentIteration % 2 == 0)
-			drawWorld(worldA, worldB, renderer, 0, worldHeight, worldWidth, worldHeight);
-		else
-			drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
+		drawWorld(newWorld_ptr, newWorld_ptr, renderer, 0, worldHeight, worldWidth, worldHeight);
 
 		// Clear renderer
 		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
@@ -434,11 +475,8 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 		++cataclysmCycle;
 	}
 
-	printf("HEMOS SALIDO DEL WHILE DE ITERATION\n");
 	send_flag_to_workers(END_PROCESSING, numWorkers);
 	free(worldA);
 	free(worldB);
 	free(masterIndex);
-	free(aux);
 }
-// --------------------------------------------------- MASTER EXECUTE --------------------------------------------------- //
