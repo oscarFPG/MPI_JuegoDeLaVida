@@ -134,7 +134,7 @@ int main(int argc, char* argv[]){
 		if(distModeStatic)
 			masterStaticExecution (worldWidth, worldHeight, size - 1, totalIterations, autoMode);
 		else
-			masterDynamicExecution(worldWidth, worldHeight, size - 1, totalIterations, autoMode, 1);
+			masterDynamicExecution(worldWidth, worldHeight, size - 1, totalIterations, autoMode, grainSize);
 
 		// Set timer
 		endTime = MPI_Wtime();

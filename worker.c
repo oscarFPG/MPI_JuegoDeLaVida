@@ -62,7 +62,6 @@ void executeWorker(){
         update_world_portion((workerWorld + worldWidth), newWorldPortion, worldWidth, numberOfRows);
 
         // Send to master
-        //send_world_partition_to_master(workerWorld + worldWidth, worldPortionSize);
         send_world_partition_to_master(newWorldPortion, worldPortionSize);
         }      
     }

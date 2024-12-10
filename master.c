@@ -309,23 +309,10 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 	// Create a random world		
 	initRandomWorld(worldA, worldWidth, worldHeight);
 
-	int count = 1;
-	for(int i = 0; i < worldWidth * worldHeight; i++){
-		printf("| %hu |", worldA[i]);
-		if(count == 6){
-			count = 1;
-			printf("\n");
-		}
-		else{
-			count++;
-			printf(" ");
-		}
-	}
-
 	// Show first world state
 	SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);
 	SDL_RenderClear(renderer);
-	drawWorld(worldA, worldB, renderer, 0, worldHeight, worldWidth, worldHeight);
+	drawWorld(worldA, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
 	SDL_RenderPresent(renderer);
 	SDL_UpdateWindowSurface(window);
 	SDL_Delay(400);
@@ -356,6 +343,7 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 		world_ptr = (currentIteration % 2 == 0) ? worldA : worldB;
 		writer_ptr = (currentIteration % 2 == 0) ? worldA : worldB;
 		newWorld_ptr = (currentIteration % 2 != 0) ? worldA : worldB;
+
 		remainingRows = worldHeight;
 		numberOfReceives = 0;
 
@@ -392,28 +380,20 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 
 			// Actualizar nuevo mundo
 			int k = masterIndex[workerID - 1].offset;
-			for(int i = 0; i < sizeReceived; i++)
-				newWorld_ptr[k + i] = aux[i];
-
-			count = 1;
-			for(int i = 0; i < worldWidth * grainSize; i++){
-				printf("| %hu |", newWorld_ptr[k + i]);
-				if(count == 6){
-					count = 1;
-					printf("\n");
-				}
-				else{
-					count++;
-					printf(" ");
-				}
+			for(int i = 0; i < sizeReceived; i++){
+				if(currentIteration % 2 == 0)
+					worldB[k + i] = aux[i];//aux mal y no vuelca datos
+				else
+					worldA[k + i] = aux[i];
 			}
+			
 
 			// Enviar al mismo worker mas trabajo, si queda
 			if(remainingRows > 0){
 				
 				int flag = 1;
 				MPI_Send(&flag, 1, MPI_INT, workerID, 0, MPI_COMM_WORLD);
-				printf("AQUI\n");
+
 				unsigned short* rowFromAbove = writer_ptr - worldWidth;
 			
 				// Auxiliar row from under
@@ -423,8 +403,8 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 				else
 					rowFromUnder = writer_ptr + (grainSize * worldWidth);
 
-				send_world_partition(rowFromAbove, writer_ptr, rowFromUnder, worldWidth, grainSize, workerID);
-				printf("AQUI SEND\n");
+				send_world_partition(rowFromAbove, writer_ptr, rowFromUnder, worldWidth, grainSize * worldWidth, workerID);
+
 				offset += grainSize;
 				masterIndex[workerID - 1].offset = offset;
 				numberOfReceives++;
@@ -435,6 +415,11 @@ void masterDynamicExecution(const int worldWidth, const int worldHeight, const i
 		}
 
 		printf("HEMOS ENVIADO Y RECIBIDO TODO\n");
+
+		if(currentIteration % 2 == 0)
+			drawWorld(worldA, worldB, renderer, 0, worldHeight, worldWidth, worldHeight);
+		else
+			drawWorld(worldB, worldA, renderer, 0, worldHeight, worldWidth, worldHeight);
 
 		// Clear renderer
 		SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0x0);

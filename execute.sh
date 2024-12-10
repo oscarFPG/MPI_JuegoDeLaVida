@@ -1,1 +1,1 @@
-mpiexec -hostfile machines -np 4 lifeGame 6 6 3 auto archivo.txt dynamic 1
+mpiexec -hostfile machines -np 4 lifeGame 3 6 5 auto archivo.txt dynamic 1
